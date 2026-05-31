@@ -746,6 +746,115 @@ html, body {
 .text-muted { color: var(--text-secondary); }
 .text-accent { color: var(--accent); }
 .text-primary-color { color: var(--primary); }
+
+/* ── IO FLYOUT ───────────────────────────────────────────────────── */
+.io-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0,0,0,0.25);
+}
+
+/* Mobil: bottom sheet */
+.io-flyout {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 85vh;
+  background: var(--surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--elev-3);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 220ms ease;
+}
+
+/* Desktop: panel från höger */
+@media (min-width: 768px) {
+  .io-overlay { background: transparent; pointer-events: none; }
+  .io-flyout {
+    top: 0;
+    bottom: 0;
+    left: auto;
+    right: 0;
+    width: 380px;
+    height: 100%;
+    border-radius: 0;
+    border-left: 1px solid var(--divider);
+    animation: slideInRight 220ms ease;
+    pointer-events: all;
+  }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+.io-flyout__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--divider);
+  flex-shrink: 0;
+}
+
+.io-flyout__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+}
+
+.io-flyout__messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.io-flyout__messages::-webkit-scrollbar { display: none; }
+
+/* ── IO FAB (flytande knapp) ─────────────────────────────────────── */
+.io-fab {
+  position: fixed;
+  bottom: calc(var(--nav-h) + 16px);
+  right: 16px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: var(--elev-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  transition: transform var(--transition), background var(--transition);
+}
+
+.io-fab:hover   { background: var(--primary-light); }
+.io-fab:active  { transform: scale(0.95); }
+.io-fab--active { background: var(--primary-dark); }
+
+@media (min-width: 768px) {
+  .io-fab { bottom: 24px; right: 24px; }
+}
 </style>
 </head>
 <body>
@@ -762,14 +871,13 @@ const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
 
 // ── Navigeringsflikar ────────────────────────────────────────────────
 const TABS = [
-  { id: 'feed',      label: 'Flöde',      icon: '🏠' },
-  { id: 'watchlist', label: 'Bevakning',  icon: '📍' },
-  { id: 'hunter',    label: 'Hunter',     icon: '🤖' },
-  { id: 'areas',     label: 'Områden',    icon: '🗺️' },
+  { id: 'feed',      label: 'Flöde',     icon: '🏠' },
+  { id: 'watchlist', label: 'Bevakning', icon: '📍' },
+  { id: 'areas',     label: 'Områden',   icon: '🗺️' },
 ];
 
-// ── Hunter AI — systemprompt ─────────────────────────────────────────
-const HUNTER_SYSTEM_PROMPT = `Du är Hunter, en expert-AI-assistent för lägenhetssökande i Sverige.
+// ── Io AI — systemprompt ─────────────────────────────────────────────
+const IO_SYSTEM_PROMPT = `Du är Io, en smart och vänlig AI-assistent för lägenhetssökande i Sverige.
 Du hjälper användare att förstå bostadsmarknaden, pristrender, områdeskaraktäristik
 och gatunivå-insikter. Du är koncis, vänlig och datadriven.
 Svara alltid på svenska. När du diskuterar priser, använd alltid SEK eller kronor.
@@ -1232,6 +1340,143 @@ function SettingsMenu({ user, household, onClose, onSignOut }) {
   );
 }
 
+// ── IoFlyout ─────────────────────────────────────────────────────────
+function IoFlyout({ household, open, onClose }) {
+  const [messages, setMessages] = React.useState([
+    { id: 'welcome', role: 'io', text: 'Hej! Jag är Io 🔍 Fråga mig om lägenheter, priser eller områden.' }
+  ]);
+  const [input, setInput]     = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const bottomRef = React.useRef(null);
+  const apiKey    = household?.anthropicKey || '';
+
+  React.useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, open]);
+
+  async function sendMessage() {
+    const text = input.trim();
+    if (!text || loading) return;
+
+    if (!apiKey) {
+      setMessages(prev => [...prev, {
+        id: localId(), role: 'io',
+        text: 'Io är inte aktiv ännu. Hushållsägaren behöver lägga till en Anthropic API-nyckel i Inställningar.',
+      }]);
+      return;
+    }
+
+    setMessages(prev => [...prev, { id: localId(), role: 'user', text }]);
+    setInput('');
+    setLoading(true);
+
+    try {
+      const history = messages
+        .filter(m => m.id !== 'welcome')
+        .map(m => ({ role: m.role === 'io' ? 'assistant' : 'user', content: m.text }));
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: CLAUDE_MODEL,
+          max_tokens: 1000,
+          system: IO_SYSTEM_PROMPT,
+          messages: [...history, { role: 'user', content: text }],
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) throw new Error('API-nyckeln är ogiltig eller saknas.');
+        if (res.status === 403) throw new Error('API-nyckeln saknar behörighet eller fakturering är inte aktiverad.');
+        if (res.status === 429) throw new Error('För många förfrågningar, försök igen om en stund.');
+        throw new Error(`API-fel ${res.status}`);
+      }
+      const reply = data.content?.[0]?.text || 'Tyvärr kunde jag inte hämta ett svar.';
+      setMessages(prev => [...prev, { id: localId(), role: 'io', text: reply }]);
+    } catch (err) {
+      setMessages(prev => [...prev, {
+        id: localId(), role: 'io',
+        text: `Fel: ${err.message}`,
+      }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
+
+  if (!open) return null;
+
+  return (
+    <>
+      {/* Overlay — stänger flyouten vid klick utanför */}
+      <div className="io-overlay" onClick={onClose} />
+
+      <div className="io-flyout">
+        {/* Header */}
+        <div className="io-flyout__header">
+          <div className="flex gap-8" style={{ alignItems: 'center' }}>
+            <div className="io-flyout__avatar">Io</div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>Io</div>
+              <div style={{ fontSize: 12, color: 'var(--text-hint)' }}>AI-assistent</div>
+            </div>
+          </div>
+          <button className="top-bar__action" style={{ color: 'var(--text-secondary)' }}
+            onClick={onClose}>✕</button>
+        </div>
+
+        {/* Meddelanden */}
+        <div className="io-flyout__messages" ref={bottomRef}>
+          {messages.map(m => (
+            <div key={m.id} className={`chat-bubble chat-bubble--${m.role === 'io' ? 'hunter' : 'user'}`}>
+              {m.text}
+            </div>
+          ))}
+          {loading && (
+            <div className="chat-bubble chat-bubble--hunter text-muted">Tänker…</div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Inmatning */}
+        <div className="chat-input-row">
+          <textarea
+            className="chat-input"
+            rows={1}
+            placeholder="Fråga Io något…"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKey}
+          />
+          <button className="chat-send" onClick={sendMessage} disabled={!input.trim() || loading}>
+            ➤
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── IoButton — flytande knapp för att öppna Io ───────────────────────
+function IoButton({ onClick, active }) {
+  return (
+    <button className={`io-fab ${active ? 'io-fab--active' : ''}`} onClick={onClick}
+      title="Öppna Io">
+      <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: -1 }}>Io</span>
+    </button>
+  );
+}
+
 /* ---- src/household.js ---- */
 // household.js — hushållslogik för Flat Tracker
 
@@ -1530,117 +1775,6 @@ function WatchlistScreen({ user, householdId }) {
   );
 }
 
-// ── HunterSkärm ──────────────────────────────────────────────────────
-function HunterScreen({ user, householdId, household }) {
-  const [messages, setMessages] = React.useState([
-    {
-      id: 'welcome',
-      role: 'hunter',
-      text: 'Hej! Jag är Hunter 🤖 Fråga mig vad som helst om lägenheter, pristrender eller områdesinsikter.',
-    }
-  ]);
-  const [input, setInput]     = React.useState('');
-  const [loading, setLoading] = React.useState(false);
-  const bottomRef = React.useRef(null);
-
-  const apiKey = household?.anthropicKey || '';
-
-  React.useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  async function sendMessage() {
-    const text = input.trim();
-    if (!text || loading) return;
-
-    if (!apiKey) {
-      setMessages(prev => [...prev, {
-        id: localId(), role: 'hunter',
-        text: 'Hunter är inte aktiv ännu. Hushållsägaren behöver lägga till en Anthropic API-nyckel i Inställningar.',
-      }]);
-      return;
-    }
-
-    const userMsg = { id: localId(), role: 'user', text };
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
-    setLoading(true);
-
-    try {
-      const history = messages
-        .filter(m => m.id !== 'welcome')
-        .map(m => ({ role: m.role === 'hunter' ? 'assistant' : 'user', content: m.text }));
-
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-client-side-api-key-access': 'true',
-        },
-        body: JSON.stringify({
-          model: CLAUDE_MODEL,
-          max_tokens: 1000,
-          system: HUNTER_SYSTEM_PROMPT,
-          messages: [...history, { role: 'user', content: text }],
-        }),
-      });
-
-      const data  = await res.json();
-      if (data.error) {
-        throw new Error(data.error.message || JSON.stringify(data.error));
-      }
-      const reply = data.content?.[0]?.text || 'Tyvärr kunde jag inte hämta ett svar.';
-      setMessages(prev => [...prev, { id: localId(), role: 'hunter', text: reply }]);
-    } catch (err) {
-      setMessages(prev => [...prev, {
-        id: localId(), role: 'hunter',
-        text: `Fel: ${err.message || JSON.stringify(err)}`,
-      }]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function handleKey(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div className="chat-messages">
-        {messages.map(m => (
-          <div key={m.id} className={`chat-bubble chat-bubble--${m.role}`}>
-            {m.text}
-          </div>
-        ))}
-        {loading && (
-          <div className="chat-bubble chat-bubble--hunter text-muted">Tänker…</div>
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      <div className="chat-input-row">
-        <textarea
-          className="chat-input"
-          rows={1}
-          placeholder="Fråga Hunter något…"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={handleKey}
-        />
-        <button className="chat-send" onClick={sendMessage} disabled={!input.trim() || loading}>
-          ➤
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ── OmrådesSkärm ─────────────────────────────────────────────────────
 function AreasScreen({ user, householdId }) {
   const [areas]    = React.useState(MOCK_AREAS);
@@ -1730,6 +1864,7 @@ function App() {
   const [household, setHousehold]       = useState(null);
   const [tab, setTab]                   = useState('feed');
   const [showSettings, setShowSettings] = useState(false);
+  const [showIo, setShowIo]             = useState(false);
   const [newCount]                      = useState(2);
 
   // ── Auth-lyssnare ──────────────────────────────────────────────────
@@ -1798,7 +1933,6 @@ function App() {
   const skärmTitlar = {
     feed:      'Flöde',
     watchlist: 'Bevakning',
-    hunter:    'Hunter',
     areas:     'Områden',
   };
 
@@ -1807,7 +1941,6 @@ function App() {
     switch (tab) {
       case 'feed':      return <FeedScreen {...props} />;
       case 'watchlist': return <WatchlistScreen {...props} />;
-      case 'hunter':    return <HunterScreen {...props} />;
       case 'areas':     return <AreasScreen {...props} />;
       default:          return <FeedScreen {...props} />;
     }
@@ -1838,6 +1971,17 @@ function App() {
               )}
             </button>
           ))}
+
+          {/* Io i sidebaren */}
+          <button
+            className={`sidebar__item ${showIo ? 'active' : ''}`}
+            onClick={() => setShowIo(v => !v)}
+          >
+            <span className="sidebar__item-icon">
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Io</span>
+            </span>
+            <span className="sidebar__item-label">Io — AI</span>
+          </button>
         </nav>
 
         <div className="sidebar__footer">
@@ -1863,8 +2007,18 @@ function App() {
           onMenuOpen={() => setShowSettings(true)}
         />
         {visaSkärm()}
-        <BottomNav active={tab} onChange={setTab} badge={badge} />
+        <BottomNav active={tab} onChange={t => { setTab(t); setShowIo(false); }} badge={badge} />
       </div>
+
+      {/* ── Io FAB (mobil) ─────────────────────────────────────────── */}
+      <IoButton onClick={() => setShowIo(v => !v)} active={showIo} />
+
+      {/* ── Io Flyout ──────────────────────────────────────────────── */}
+      <IoFlyout
+        household={household}
+        open={showIo}
+        onClose={() => setShowIo(false)}
+      />
 
       {/* ── Inställningsmeny ───────────────────────────────────────── */}
       {showSettings && (
