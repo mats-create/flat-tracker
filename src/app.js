@@ -81,7 +81,7 @@ function App() {
   };
 
   function visaSkärm() {
-    const props = { user, householdId };
+    const props = { user, householdId, household };
     switch (tab) {
       case 'feed':      return <FeedScreen {...props} />;
       case 'watchlist': return <WatchlistScreen {...props} />;

@@ -215,3 +215,11 @@ function HouseholdSetupScreen({ user, onComplete }) {
 
   return null;
 }
+
+// ── Spara API-nyckel till hushållet ──────────────────────────────────
+async function saveHouseholdApiKey(householdId, apiKey) {
+  const { db, doc, updateDoc } = window.__firebase;
+  await updateDoc(doc(db, COLLECTIONS.HOUSEHOLDS, householdId), {
+    anthropicKey: apiKey,
+  });
+}

@@ -136,7 +136,13 @@ function LoginScreen({ onLogin }) {
 
 // ── SettingsMenu ─────────────────────────────────────────────────────
 function SettingsMenu({ user, household, onClose, onSignOut }) {
-  const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied]       = React.useState(false);
+  const [apiKey, setApiKey]       = React.useState(household?.anthropicKey || '');
+  const [showKey, setShowKey]     = React.useState(false);
+  const [keySaved, setKeySaved]   = React.useState(false);
+  const [keyError, setKeyError]   = React.useState('');
+
+  const isOwner = household?.createdBy === user?.uid;
 
   function copyCode() {
     if (household?.inviteCode) {
@@ -147,11 +153,28 @@ function SettingsMenu({ user, household, onClose, onSignOut }) {
     }
   }
 
+  async function saveApiKey() {
+    if (!apiKey.trim().startsWith('sk-ant-')) {
+      setKeyError('Nyckeln ska börja med sk-ant-');
+      return;
+    }
+    setKeyError('');
+    try {
+      await saveHouseholdApiKey(household.id, apiKey.trim());
+      setKeySaved(true);
+      setTimeout(() => setKeySaved(false), 2500);
+    } catch (e) {
+      setKeyError('Kunde inte spara. Försök igen.');
+    }
+  }
+
+  const divider = <div style={{ height: 1, background: 'var(--divider)', margin: '12px 0' }} />;
+
   return (
     <div className="settings-overlay" onClick={onClose}>
-      <div className="settings-sheet" onClick={e => e.stopPropagation()}>
+      <div className="settings-sheet" onClick={e => e.stopPropagation()}
+        style={{ overflowY: 'auto', maxHeight: '90vh' }}>
 
-        {/* Handtag */}
         <div className="settings-handle" />
 
         {/* Profil */}
@@ -167,25 +190,23 @@ function SettingsMenu({ user, household, onClose, onSignOut }) {
           <div>
             <div style={{ fontWeight: 500, fontSize: 15 }}>{user?.displayName}</div>
             <div className="text-sm text-muted">{user?.email}</div>
+            {isOwner && <Chip label="Ägare" variant="primary" />}
           </div>
         </div>
 
-        <div style={{ height: 1, background: 'var(--divider)', marginBottom: 20 }} />
+        {divider}
 
         {/* Hushåll */}
         <div className="section-header" style={{ marginTop: 0 }}>Hushåll</div>
         <Card style={{ marginBottom: 16 }}>
-          <div className="list-item__sub" style={{ marginBottom: 6 }}>Hushållets namn</div>
-          <div style={{ fontWeight: 500 }}>{household?.name || '—'}</div>
+          <div className="list-item__sub" style={{ marginBottom: 4 }}>Namn</div>
+          <div style={{ fontWeight: 500, marginBottom: 12 }}>{household?.name || '—'}</div>
 
-          <div style={{ height: 1, background: 'var(--divider)', margin: '12px 0' }} />
+          {divider}
 
           <div className="list-item__sub" style={{ marginBottom: 8 }}>Inbjudningskod</div>
           <div className="flex-between">
-            <div style={{
-              fontSize: 24, fontWeight: 700, letterSpacing: 6,
-              fontFamily: 'monospace', color: 'var(--primary)',
-            }}>
+            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: 6, fontFamily: 'monospace', color: 'var(--primary)' }}>
               {household?.inviteCode || '——'}
             </div>
             <button className="btn btn--text" style={{ padding: '6px 12px' }} onClick={copyCode}>
@@ -193,10 +214,10 @@ function SettingsMenu({ user, household, onClose, onSignOut }) {
             </button>
           </div>
           <div className="text-sm text-muted" style={{ marginTop: 4 }}>
-            Dela med din medsökare för att gå med i hushållet
+            Dela med din medsökare för att bjuda in dem
           </div>
 
-          <div style={{ height: 1, background: 'var(--divider)', margin: '12px 0' }} />
+          {divider}
 
           <div className="list-item__sub" style={{ marginBottom: 8 }}>Medlemmar</div>
           {(household?.members || []).map((uid, i) => (
@@ -215,6 +236,60 @@ function SettingsMenu({ user, household, onClose, onSignOut }) {
             </div>
           ))}
         </Card>
+
+        {/* API-nyckel — bara synlig för ägaren */}
+        {isOwner && (
+          <>
+            <div className="section-header">Hunter AI</div>
+            <Card style={{ marginBottom: 16 }}>
+              <div className="list-item__sub" style={{ marginBottom: 6 }}>
+                Anthropic API-nyckel
+              </div>
+              <div className="text-sm text-muted" style={{ marginBottom: 10, lineHeight: 1.5 }}>
+                Hämta din nyckel på console.anthropic.com. Den delas automatiskt med alla i hushållet.
+              </div>
+              <div className="flex gap-8" style={{ alignItems: 'center' }}>
+                <input
+                  className="input"
+                  type={showKey ? 'text' : 'password'}
+                  placeholder="sk-ant-..."
+                  value={apiKey}
+                  onChange={e => setApiKey(e.target.value)}
+                  style={{ fontFamily: 'monospace', fontSize: 13 }}
+                />
+                <button className="btn btn--text" style={{ flexShrink: 0, padding: '8px' }}
+                  onClick={() => setShowKey(v => !v)}>
+                  {showKey ? '🙈' : '👁️'}
+                </button>
+              </div>
+              {keyError && (
+                <div className="text-sm" style={{ color: 'var(--error)', marginTop: 6 }}>{keyError}</div>
+              )}
+              <button className="btn btn--primary btn--full" style={{ marginTop: 10 }}
+                onClick={saveApiKey} disabled={!apiKey.trim()}>
+                {keySaved ? '✓ Sparad!' : 'Spara nyckel'}
+              </button>
+              {household?.anthropicKey && (
+                <div className="text-sm" style={{ color: 'var(--success)', marginTop: 8, textAlign: 'center' }}>
+                  ✓ Nyckel är aktiv
+                </div>
+              )}
+            </Card>
+          </>
+        )}
+
+        {!isOwner && (
+          <>
+            <div className="section-header">Hunter AI</div>
+            <Card style={{ marginBottom: 16 }}>
+              <div className="text-sm text-muted">
+                {household?.anthropicKey
+                  ? '✓ Hunter är aktiv — API-nyckel konfigurerad av hushållsägaren.'
+                  : '⚠️ Hunter är inte aktiv ännu. Be hushållsägaren lägga till en API-nyckel i inställningarna.'}
+              </div>
+            </Card>
+          </>
+        )}
 
         {/* Logga ut */}
         <button className="btn btn--full" onClick={onSignOut}

@@ -69,7 +69,7 @@ function WatchlistScreen({ user, householdId }) {
 }
 
 // ── HunterSkärm ──────────────────────────────────────────────────────
-function HunterScreen({ user, householdId }) {
+function HunterScreen({ user, householdId, household }) {
   const [messages, setMessages] = React.useState([
     {
       id: 'welcome',
@@ -77,9 +77,11 @@ function HunterScreen({ user, householdId }) {
       text: 'Hej! Jag är Hunter 🤖 Fråga mig vad som helst om lägenheter, pristrender eller områdesinsikter.',
     }
   ]);
-  const [input, setInput]   = React.useState('');
+  const [input, setInput]     = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const bottomRef = React.useRef(null);
+
+  const apiKey = household?.anthropicKey || '';
 
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -88,6 +90,14 @@ function HunterScreen({ user, householdId }) {
   async function sendMessage() {
     const text = input.trim();
     if (!text || loading) return;
+
+    if (!apiKey) {
+      setMessages(prev => [...prev, {
+        id: localId(), role: 'hunter',
+        text: 'Hunter är inte aktiv ännu. Hushållsägaren behöver lägga till en Anthropic API-nyckel i Inställningar.',
+      }]);
+      return;
+    }
 
     const userMsg = { id: localId(), role: 'user', text };
     setMessages(prev => [...prev, userMsg]);
@@ -101,7 +111,12 @@ function HunterScreen({ user, householdId }) {
 
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-client-side-api-key-access': 'true',
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1000,
