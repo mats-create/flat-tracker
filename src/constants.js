@@ -1,7 +1,8 @@
 // constants.js — app-wide constants for Flat Tracker
 
-const APP_NAME    = 'Flat Tracker';
-const APP_VERSION = '0.2.0';
+const APP_NAME     = 'Flat Tracker';
+const APP_VERSION  = '0.2.0';
+const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
 
 // ── Navigeringsflikar ────────────────────────────────────────────────
 const TABS = [

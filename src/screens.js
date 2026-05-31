@@ -118,7 +118,7 @@ function HunterScreen({ user, householdId, household }) {
           'anthropic-dangerous-client-side-api-key-access': 'true',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: CLAUDE_MODEL,
           max_tokens: 1000,
           system: HUNTER_SYSTEM_PROMPT,
           messages: [...history, { role: 'user', content: text }],
