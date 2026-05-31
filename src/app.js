@@ -3,21 +3,19 @@
 const { useState, useEffect } = React;
 
 function App() {
-  const [user, setUser]               = useState(undefined);
-  const [householdId, setHouseholdId] = useState(undefined);
-  const [household, setHousehold]     = useState(null);
-  const [tab, setTab]                 = useState('feed');
+  const [user, setUser]                 = useState(undefined);
+  const [householdId, setHouseholdId]   = useState(undefined);
+  const [household, setHousehold]       = useState(null);
+  const [tab, setTab]                   = useState('feed');
   const [showSettings, setShowSettings] = useState(false);
-  const [newCount]                    = useState(2);
+  const [newCount]                      = useState(2);
 
   // ── Auth-lyssnare ──────────────────────────────────────────────────
   useEffect(() => {
     const { auth, onAuthStateChanged } = window.__firebase;
     const unsub = onAuthStateChanged(auth, async u => {
       if (!u) {
-        setUser(null);
-        setHouseholdId(null);
-        setHousehold(null);
+        setUser(null); setHouseholdId(null); setHousehold(null);
         return;
       }
       setUser(u);
@@ -27,7 +25,7 @@ function App() {
     return unsub;
   }, []);
 
-  // ── Hämta hushållsdata när vi har ett ID ───────────────────────────
+  // ── Hämta hushållsdata ─────────────────────────────────────────────
   useEffect(() => {
     if (!householdId) return;
     const { db, doc, onSnapshot } = window.__firebase;
@@ -66,15 +64,13 @@ function App() {
     );
   }
 
-  // ── Ej inloggad ───────────────────────────────────────────────────
   if (user === null) return <LoginScreen onLogin={handleLogin} />;
 
-  // ── Inloggad men saknar hushåll ───────────────────────────────────
   if (!householdId) {
     return <HouseholdSetupScreen user={user} onComplete={handleHouseholdComplete} />;
   }
 
-  // ── Inloggad med hushåll ──────────────────────────────────────────
+  // ── Rendrera skärm ────────────────────────────────────────────────
   const skärmTitlar = {
     feed:      'Flöde',
     watchlist: 'Bevakning',
@@ -93,15 +89,60 @@ function App() {
     }
   }
 
+  const badge = { feed: newCount };
+
   return (
     <>
-      <TopBar
-        title={skärmTitlar[tab]}
-        onMenuOpen={() => setShowSettings(true)}
-      />
-      {visaSkärm()}
-      <BottomNav active={tab} onChange={setTab} badge={{ feed: newCount }} />
+      {/* ── Desktop sidebar ────────────────────────────────────────── */}
+      <aside className="sidebar">
+        <div className="sidebar__brand">
+          <Logo size={32} />
+          <span className="sidebar__brand-name">Flat Tracker</span>
+        </div>
 
+        <nav className="sidebar__nav">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              className={`sidebar__item ${tab === t.id ? 'active' : ''}`}
+              onClick={() => setTab(t.id)}
+            >
+              <span className="sidebar__item-icon">{t.icon}</span>
+              <span className="sidebar__item-label">{t.label}</span>
+              {badge[t.id] > 0 && (
+                <span className="sidebar__item-badge">{badge[t.id]}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar__footer">
+          <button className="sidebar__settings-btn" onClick={() => setShowSettings(true)}>
+            <div className="sidebar__avatar">
+              {user?.displayName?.[0]?.toUpperCase() || '?'}
+            </div>
+            <div style={{ flex: 1, textAlign: 'left' }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+                {user?.displayName}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-hint)' }}>Inställningar</div>
+            </div>
+            <span style={{ fontSize: 16 }}>⚙️</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Huvudinnehåll ──────────────────────────────────────────── */}
+      <div className="app-body">
+        <TopBar
+          title={skärmTitlar[tab]}
+          onMenuOpen={() => setShowSettings(true)}
+        />
+        {visaSkärm()}
+        <BottomNav active={tab} onChange={setTab} badge={badge} />
+      </div>
+
+      {/* ── Inställningsmeny ───────────────────────────────────────── */}
       {showSettings && (
         <SettingsMenu
           user={user}
