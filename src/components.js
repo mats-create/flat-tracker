@@ -305,3 +305,140 @@ function SettingsMenu({ user, household, onClose, onSignOut }) {
     </div>
   );
 }
+
+// ── IoFlyout ─────────────────────────────────────────────────────────
+function IoFlyout({ household, open, onClose }) {
+  const [messages, setMessages] = React.useState([
+    { id: 'welcome', role: 'io', text: 'Hej! Jag är Io 🔍 Fråga mig om lägenheter, priser eller områden.' }
+  ]);
+  const [input, setInput]     = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const bottomRef = React.useRef(null);
+  const apiKey    = household?.anthropicKey || '';
+
+  React.useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, open]);
+
+  async function sendMessage() {
+    const text = input.trim();
+    if (!text || loading) return;
+
+    if (!apiKey) {
+      setMessages(prev => [...prev, {
+        id: localId(), role: 'io',
+        text: 'Io är inte aktiv ännu. Hushållsägaren behöver lägga till en Anthropic API-nyckel i Inställningar.',
+      }]);
+      return;
+    }
+
+    setMessages(prev => [...prev, { id: localId(), role: 'user', text }]);
+    setInput('');
+    setLoading(true);
+
+    try {
+      const history = messages
+        .filter(m => m.id !== 'welcome')
+        .map(m => ({ role: m.role === 'io' ? 'assistant' : 'user', content: m.text }));
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: CLAUDE_MODEL,
+          max_tokens: 1000,
+          system: IO_SYSTEM_PROMPT,
+          messages: [...history, { role: 'user', content: text }],
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) throw new Error('API-nyckeln är ogiltig eller saknas.');
+        if (res.status === 403) throw new Error('API-nyckeln saknar behörighet eller fakturering är inte aktiverad.');
+        if (res.status === 429) throw new Error('För många förfrågningar, försök igen om en stund.');
+        throw new Error(`API-fel ${res.status}`);
+      }
+      const reply = data.content?.[0]?.text || 'Tyvärr kunde jag inte hämta ett svar.';
+      setMessages(prev => [...prev, { id: localId(), role: 'io', text: reply }]);
+    } catch (err) {
+      setMessages(prev => [...prev, {
+        id: localId(), role: 'io',
+        text: `Fel: ${err.message}`,
+      }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
+
+  if (!open) return null;
+
+  return (
+    <>
+      {/* Overlay — stänger flyouten vid klick utanför */}
+      <div className="io-overlay" onClick={onClose} />
+
+      <div className="io-flyout">
+        {/* Header */}
+        <div className="io-flyout__header">
+          <div className="flex gap-8" style={{ alignItems: 'center' }}>
+            <div className="io-flyout__avatar">Io</div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>Io</div>
+              <div style={{ fontSize: 12, color: 'var(--text-hint)' }}>AI-assistent</div>
+            </div>
+          </div>
+          <button className="top-bar__action" style={{ color: 'var(--text-secondary)' }}
+            onClick={onClose}>✕</button>
+        </div>
+
+        {/* Meddelanden */}
+        <div className="io-flyout__messages" ref={bottomRef}>
+          {messages.map(m => (
+            <div key={m.id} className={`chat-bubble chat-bubble--${m.role === 'io' ? 'hunter' : 'user'}`}>
+              {m.text}
+            </div>
+          ))}
+          {loading && (
+            <div className="chat-bubble chat-bubble--hunter text-muted">Tänker…</div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Inmatning */}
+        <div className="chat-input-row">
+          <textarea
+            className="chat-input"
+            rows={1}
+            placeholder="Fråga Io något…"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKey}
+          />
+          <button className="chat-send" onClick={sendMessage} disabled={!input.trim() || loading}>
+            ➤
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── IoButton — flytande knapp för att öppna Io ───────────────────────
+function IoButton({ onClick, active }) {
+  return (
+    <button className={`io-fab ${active ? 'io-fab--active' : ''}`} onClick={onClick}
+      title="Öppna Io">
+      <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: -1 }}>Io</span>
+    </button>
+  );
+}

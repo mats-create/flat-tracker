@@ -696,3 +696,112 @@ html, body {
 .text-muted { color: var(--text-secondary); }
 .text-accent { color: var(--accent); }
 .text-primary-color { color: var(--primary); }
+
+/* ── IO FLYOUT ───────────────────────────────────────────────────── */
+.io-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0,0,0,0.25);
+}
+
+/* Mobil: bottom sheet */
+.io-flyout {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 85vh;
+  background: var(--surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--elev-3);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 220ms ease;
+}
+
+/* Desktop: panel från höger */
+@media (min-width: 768px) {
+  .io-overlay { background: transparent; pointer-events: none; }
+  .io-flyout {
+    top: 0;
+    bottom: 0;
+    left: auto;
+    right: 0;
+    width: 380px;
+    height: 100%;
+    border-radius: 0;
+    border-left: 1px solid var(--divider);
+    animation: slideInRight 220ms ease;
+    pointer-events: all;
+  }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+.io-flyout__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--divider);
+  flex-shrink: 0;
+}
+
+.io-flyout__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+}
+
+.io-flyout__messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.io-flyout__messages::-webkit-scrollbar { display: none; }
+
+/* ── IO FAB (flytande knapp) ─────────────────────────────────────── */
+.io-fab {
+  position: fixed;
+  bottom: calc(var(--nav-h) + 16px);
+  right: 16px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: var(--elev-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  transition: transform var(--transition), background var(--transition);
+}
+
+.io-fab:hover   { background: var(--primary-light); }
+.io-fab:active  { transform: scale(0.95); }
+.io-fab--active { background: var(--primary-dark); }
+
+@media (min-width: 768px) {
+  .io-fab { bottom: 24px; right: 24px; }
+}

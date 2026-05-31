@@ -6,14 +6,13 @@ const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
 
 // ── Navigeringsflikar ────────────────────────────────────────────────
 const TABS = [
-  { id: 'feed',      label: 'Flöde',      icon: '🏠' },
-  { id: 'watchlist', label: 'Bevakning',  icon: '📍' },
-  { id: 'hunter',    label: 'Hunter',     icon: '🤖' },
-  { id: 'areas',     label: 'Områden',    icon: '🗺️' },
+  { id: 'feed',      label: 'Flöde',     icon: '🏠' },
+  { id: 'watchlist', label: 'Bevakning', icon: '📍' },
+  { id: 'areas',     label: 'Områden',   icon: '🗺️' },
 ];
 
-// ── Hunter AI — systemprompt ─────────────────────────────────────────
-const HUNTER_SYSTEM_PROMPT = `Du är Hunter, en expert-AI-assistent för lägenhetssökande i Sverige.
+// ── Io AI — systemprompt ─────────────────────────────────────────────
+const IO_SYSTEM_PROMPT = `Du är Io, en smart och vänlig AI-assistent för lägenhetssökande i Sverige.
 Du hjälper användare att förstå bostadsmarknaden, pristrender, områdeskaraktäristik
 och gatunivå-insikter. Du är koncis, vänlig och datadriven.
 Svara alltid på svenska. När du diskuterar priser, använd alltid SEK eller kronor.

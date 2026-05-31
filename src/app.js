@@ -8,6 +8,7 @@ function App() {
   const [household, setHousehold]       = useState(null);
   const [tab, setTab]                   = useState('feed');
   const [showSettings, setShowSettings] = useState(false);
+  const [showIo, setShowIo]             = useState(false);
   const [newCount]                      = useState(2);
 
   // ── Auth-lyssnare ──────────────────────────────────────────────────
@@ -76,7 +77,6 @@ function App() {
   const skärmTitlar = {
     feed:      'Flöde',
     watchlist: 'Bevakning',
-    hunter:    'Hunter',
     areas:     'Områden',
   };
 
@@ -85,7 +85,6 @@ function App() {
     switch (tab) {
       case 'feed':      return <FeedScreen {...props} />;
       case 'watchlist': return <WatchlistScreen {...props} />;
-      case 'hunter':    return <HunterScreen {...props} />;
       case 'areas':     return <AreasScreen {...props} />;
       default:          return <FeedScreen {...props} />;
     }
@@ -116,6 +115,17 @@ function App() {
               )}
             </button>
           ))}
+
+          {/* Io i sidebaren */}
+          <button
+            className={`sidebar__item ${showIo ? 'active' : ''}`}
+            onClick={() => setShowIo(v => !v)}
+          >
+            <span className="sidebar__item-icon">
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Io</span>
+            </span>
+            <span className="sidebar__item-label">Io — AI</span>
+          </button>
         </nav>
 
         <div className="sidebar__footer">
@@ -141,8 +151,18 @@ function App() {
           onMenuOpen={() => setShowSettings(true)}
         />
         {visaSkärm()}
-        <BottomNav active={tab} onChange={setTab} badge={badge} />
+        <BottomNav active={tab} onChange={t => { setTab(t); setShowIo(false); }} badge={badge} />
       </div>
+
+      {/* ── Io FAB (mobil) ─────────────────────────────────────────── */}
+      <IoButton onClick={() => setShowIo(v => !v)} active={showIo} />
+
+      {/* ── Io Flyout ──────────────────────────────────────────────── */}
+      <IoFlyout
+        household={household}
+        open={showIo}
+        onClose={() => setShowIo(false)}
+      />
 
       {/* ── Inställningsmeny ───────────────────────────────────────── */}
       {showSettings && (
