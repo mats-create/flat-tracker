@@ -380,14 +380,12 @@ function IoFlyout({ household, open, onClose }) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   }
 
-  if (!open) return null;
-
   return (
     <>
-      {/* Overlay — stänger flyouten vid klick utanför */}
-      <div className="io-overlay" onClick={onClose} />
+      {/* Overlay — bara på mobil */}
+      {open && <div className="io-overlay" onClick={onClose} />}
 
-      <div className="io-flyout">
+      <div className={`io-flyout ${open ? 'io-flyout--open' : ''}`}>
         {/* Header */}
         <div className="io-flyout__header">
           <div className="flex gap-8" style={{ alignItems: 'center' }}>

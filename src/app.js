@@ -152,12 +152,11 @@ function App() {
         />
         {visaSkärm()}
         <BottomNav active={tab} onChange={t => { setTab(t); setShowIo(false); }} badge={badge} />
+        {/* Io FAB — följer med app-body på desktop */}
+        <IoButton onClick={() => setShowIo(v => !v)} active={showIo} />
       </div>
 
-      {/* ── Io FAB (mobil) ─────────────────────────────────────────── */}
-      <IoButton onClick={() => setShowIo(v => !v)} active={showIo} />
-
-      {/* ── Io Flyout ──────────────────────────────────────────────── */}
+      {/* ── Io Flyout — rotnivå så den skjuter in layouten ─────────── */}
       <IoFlyout
         household={household}
         open={showIo}
