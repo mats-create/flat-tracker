@@ -50,7 +50,7 @@
 <style>
 /* ═══════════════════════════════════════════════════════════════════
    FLAT TRACKER — style.css
-   Material Design 3 tokens, mobile-first
+   Material Design 3, mobilt först, responsiv layout
 ═══════════════════════════════════════════════════════════════════ */
 
 /* ── RESET ───────────────────────────────────────────────────────── */
@@ -58,48 +58,40 @@
 
 /* ── DESIGN TOKENS ───────────────────────────────────────────────── */
 :root {
-  /* Brand */
-  --primary:       #1565C0;   /* MD Blue 800 */
-  --primary-light: #1E88E5;   /* MD Blue 600 */
-  --primary-dark:  #0D47A1;   /* MD Blue 900 */
-  --accent:        #FF6F00;   /* MD Amber 900 — alert/CTA */
-  --accent-light:  #FFB300;   /* MD Amber 600 */
+  --primary:          #1565C0;
+  --primary-light:    #1E88E5;
+  --primary-dark:     #0D47A1;
+  --accent:           #FF6F00;
+  --accent-light:     #FFB300;
 
-  /* Surface */
-  --bg:            #F5F7FA;
-  --surface:       #FFFFFF;
-  --surface-2:     #EEF2F7;
-  --divider:       rgba(0,0,0,0.10);
+  --bg:               #F5F7FA;
+  --surface:          #FFFFFF;
+  --surface-2:        #EEF2F7;
+  --divider:          rgba(0,0,0,0.10);
 
-  /* Text */
-  --text-primary:  #1A1A2E;
-  --text-secondary:#5C6B7A;
-  --text-hint:     #9AA5B1;
-  --text-on-primary: #FFFFFF;
+  --text-primary:     #1A1A2E;
+  --text-secondary:   #5C6B7A;
+  --text-hint:        #9AA5B1;
+  --text-on-primary:  #FFFFFF;
 
-  /* Semantic */
-  --success:       #2E7D32;
-  --warning:       #F57F17;
-  --error:         #C62828;
-  --new-badge:     #E53935;
+  --success:          #2E7D32;
+  --warning:          #F57F17;
+  --error:            #C62828;
+  --new-badge:        #E53935;
 
-  /* Geometry */
-  --radius:        12px;
-  --radius-sm:     8px;
-  --radius-lg:     16px;
-  --radius-full:   999px;
+  --radius:           12px;
+  --radius-sm:        8px;
+  --radius-lg:        16px;
+  --radius-full:      999px;
 
-  /* Layout */
-  --nav-h:         64px;
-  --top-h:         56px;
-  --max-w:         480px;    /* max content width on wide screens */
+  --top-h:            56px;
+  --nav-h:            64px;        /* mobil bottom nav */
+  --sidebar-w:        240px;       /* desktop sidebar */
 
-  /* Elevation (box-shadow) */
   --elev-1: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
   --elev-2: 0 3px 6px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08);
   --elev-3: 0 6px 16px rgba(0,0,0,0.12), 0 3px 6px rgba(0,0,0,0.08);
 
-  /* Transitions */
   --transition: 180ms ease;
 }
 
@@ -118,13 +110,13 @@ html, body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  max-width: var(--max-w);
-  margin: 0 auto;
-  position: relative;
-  overflow: hidden;
 }
 
-/* ── TOP APP BAR ─────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════
+   MOBIL LAYOUT (standard)
+══════════════════════════════════════════════════════════════════ */
+
+/* ── Top App Bar (mobil) ─────────────────────────────────────────── */
 .top-bar {
   height: var(--top-h);
   background: var(--primary);
@@ -145,10 +137,6 @@ html, body {
   flex: 1;
 }
 
-.top-bar__logo {
-  font-size: 22px;
-}
-
 .top-bar__action {
   background: none;
   border: none;
@@ -163,11 +151,17 @@ html, body {
   transition: background var(--transition);
 }
 
-.top-bar__action:hover {
-  background: rgba(255,255,255,0.15);
+.top-bar__action:hover { background: rgba(255,255,255,0.15); }
+
+/* ── App body (mobil) ────────────────────────────────────────────── */
+.app-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-/* ── SCREEN CONTENT ──────────────────────────────────────────────── */
+/* ── Screen content (mobil) ──────────────────────────────────────── */
 .screen {
   flex: 1;
   overflow-y: auto;
@@ -179,7 +173,7 @@ html, body {
 
 .screen::-webkit-scrollbar { display: none; }
 
-/* ── BOTTOM NAVIGATION ───────────────────────────────────────────── */
+/* ── Bottom Navigation (mobil) ───────────────────────────────────── */
 .bottom-nav {
   height: var(--nav-h);
   background: var(--surface);
@@ -208,19 +202,10 @@ html, body {
 }
 
 .nav-item:active { background: var(--surface-2); }
+.nav-item.active  { color: var(--primary); }
 
-.nav-item.active { color: var(--primary); }
-
-.nav-item__icon {
-  font-size: 22px;
-  line-height: 1;
-}
-
-.nav-item__label {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.3px;
-}
+.nav-item__icon  { font-size: 22px; line-height: 1; }
+.nav-item__label { font-size: 11px; font-weight: 500; letter-spacing: 0.3px; }
 
 .nav-item__badge {
   position: absolute;
@@ -239,7 +224,186 @@ html, body {
   justify-content: center;
 }
 
-/* ── CARD ─────────────────────────────────────────────────────────── */
+/* Desktop sidebar — dold på mobil */
+.sidebar { display: none; }
+
+/* ══════════════════════════════════════════════════════════════════
+   DESKTOP LAYOUT  (≥ 768px)
+══════════════════════════════════════════════════════════════════ */
+@media (min-width: 768px) {
+
+  #root {
+    flex-direction: row;
+  }
+
+  /* ── Sidebar ───────────────────────────────────────────────────── */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--divider);
+    flex-shrink: 0;
+    z-index: 10;
+    box-shadow: var(--elev-1);
+  }
+
+  .sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--divider);
+  }
+
+  .sidebar__brand-name {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--primary);
+    letter-spacing: 0.2px;
+  }
+
+  .sidebar__nav {
+    flex: 1;
+    padding: 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .sidebar__item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: background var(--transition), color var(--transition);
+    position: relative;
+    text-align: left;
+    width: 100%;
+  }
+
+  .sidebar__item:hover  { background: var(--surface-2); color: var(--text-primary); }
+  .sidebar__item.active { background: #E3F0FF; color: var(--primary); }
+
+  .sidebar__item-icon  { font-size: 20px; flex-shrink: 0; }
+  .sidebar__item-label { flex: 1; }
+
+  .sidebar__item-badge {
+    background: var(--new-badge);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 20px;
+    height: 20px;
+    border-radius: var(--radius-full);
+    padding: 0 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sidebar__footer {
+    padding: 16px;
+    border-top: 1px solid var(--divider);
+  }
+
+  .sidebar__settings-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    background: none;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+    font-size: 14px;
+    color: var(--text-secondary);
+    transition: background var(--transition);
+  }
+
+  .sidebar__settings-btn:hover { background: var(--surface-2); }
+
+  .sidebar__avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* ── Main content area ─────────────────────────────────────────── */
+  .app-body {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Top bar på desktop ────────────────────────────────────────── */
+  .top-bar {
+    background: var(--surface);
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--divider);
+    box-shadow: none;
+  }
+
+  .top-bar__title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .top-bar__action {
+    color: var(--text-secondary);
+  }
+
+  .top-bar__action:hover { background: var(--surface-2); }
+
+  /* ── Screen på desktop ─────────────────────────────────────────── */
+  .screen {
+    padding: 24px 32px;
+    padding-bottom: 24px;
+    max-width: 900px;
+  }
+
+  /* ── Dölj bottom nav på desktop ────────────────────────────────── */
+  .bottom-nav { display: none; }
+
+  /* ── Två kolumner för kort på desktop ──────────────────────────── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .card-grid .card { margin-bottom: 0; }
+}
+
+@media (min-width: 1200px) {
+  :root { --sidebar-w: 260px; }
+  .screen { max-width: 1100px; }
+  .card-grid { grid-template-columns: 1fr 1fr 1fr; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   GEMENSAMMA KOMPONENTER
+══════════════════════════════════════════════════════════════════ */
+
+/* ── Card ─────────────────────────────────────────────────────────── */
 .card {
   background: var(--surface);
   border-radius: var(--radius);
@@ -248,15 +412,12 @@ html, body {
   margin-bottom: 12px;
 }
 
-.card--accent {
-  border-left: 4px solid var(--accent);
-}
+.card--accent { border-left: 4px solid var(--accent); }
+.card--new    { border-left: 4px solid var(--new-badge); }
+.card--clickable { cursor: pointer; transition: box-shadow var(--transition); }
+.card--clickable:hover { box-shadow: var(--elev-2); }
 
-.card--new {
-  border-left: 4px solid var(--new-badge);
-}
-
-/* ── SECTION HEADER ──────────────────────────────────────────────── */
+/* ── Section header ──────────────────────────────────────────────── */
 .section-header {
   font-size: 13px;
   font-weight: 700;
@@ -268,7 +429,7 @@ html, body {
 
 .section-header:first-child { margin-top: 0; }
 
-/* ── BADGE / CHIP ────────────────────────────────────────────────── */
+/* ── Chip ────────────────────────────────────────────────────────── */
 .chip {
   display: inline-flex;
   align-items: center;
@@ -279,13 +440,13 @@ html, body {
   font-weight: 500;
 }
 
-.chip--primary  { background: #E3F0FF; color: var(--primary); }
-.chip--accent   { background: #FFF3E0; color: var(--warning); }
-.chip--success  { background: #E8F5E9; color: var(--success); }
-.chip--error    { background: #FFEBEE; color: var(--error);   }
-.chip--new      { background: var(--new-badge); color: #fff;  }
+.chip--primary { background: #E3F0FF; color: var(--primary); }
+.chip--accent  { background: #FFF3E0; color: var(--warning); }
+.chip--success { background: #E8F5E9; color: var(--success); }
+.chip--error   { background: #FFEBEE; color: var(--error);   }
+.chip--new     { background: var(--new-badge); color: #fff;  }
 
-/* ── BUTTON ──────────────────────────────────────────────────────── */
+/* ── Button ──────────────────────────────────────────────────────── */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -299,25 +460,15 @@ html, body {
   border: none;
   cursor: pointer;
   transition: box-shadow var(--transition), opacity var(--transition);
+  font-family: inherit;
 }
 
-.btn--primary {
-  background: var(--primary);
-  color: var(--text-on-primary);
-  box-shadow: var(--elev-1);
-}
-
+.btn--primary { background: var(--primary); color: var(--text-on-primary); box-shadow: var(--elev-1); }
 .btn--primary:active { box-shadow: none; opacity: 0.9; }
+.btn--text    { background: none; color: var(--primary); padding: 8px 12px; }
+.btn--full    { width: 100%; }
 
-.btn--text {
-  background: none;
-  color: var(--primary);
-  padding: 8px 12px;
-}
-
-.btn--full { width: 100%; }
-
-/* ── FAB (Floating Action Button) ────────────────────────────────── */
+/* ── FAB ─────────────────────────────────────────────────────────── */
 .fab {
   position: fixed;
   bottom: calc(var(--nav-h) + 16px);
@@ -340,7 +491,11 @@ html, body {
 
 .fab:active { transform: scale(0.95); box-shadow: var(--elev-1); }
 
-/* ── LIST ITEM ───────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  .fab { bottom: 24px; right: 32px; }
+}
+
+/* ── List item ───────────────────────────────────────────────────── */
 .list-item {
   display: flex;
   align-items: center;
@@ -367,7 +522,7 @@ html, body {
 .list-item__title   { font-size: 15px; font-weight: 500; }
 .list-item__sub     { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
 
-/* ── EMPTY STATE ─────────────────────────────────────────────────── */
+/* ── Empty state ─────────────────────────────────────────────────── */
 .empty-state {
   text-align: center;
   padding: 48px 24px;
@@ -378,7 +533,7 @@ html, body {
 .empty-state__title { font-size: 17px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
 .empty-state__text  { font-size: 14px; line-height: 1.5; }
 
-/* ── LOADING SPINNER ─────────────────────────────────────────────── */
+/* ── Spinner ─────────────────────────────────────────────────────── */
 .spinner {
   width: 32px; height: 32px;
   border: 3px solid var(--surface-2);
@@ -390,14 +545,7 @@ html, body {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── HUNTER CHAT ─────────────────────────────────────────────────── */
-.chat-wrap {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 0;
-}
-
+/* ── Hunter chat ─────────────────────────────────────────────────── */
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -418,7 +566,7 @@ html, body {
   line-height: 1.5;
 }
 
-.chat-bubble--user {
+.chat-bubble--user   {
   align-self: flex-end;
   background: var(--primary);
   color: #fff;
@@ -476,7 +624,7 @@ html, body {
 
 .chat-send:disabled { opacity: 0.4; }
 
-/* ── LOGIN SCREEN ────────────────────────────────────────────────── */
+/* ── Login screen ────────────────────────────────────────────────── */
 .login-screen {
   height: 100%;
   display: flex;
@@ -488,9 +636,8 @@ html, body {
   background: var(--bg);
 }
 
-.login-screen__logo   { font-size: 56px; margin-bottom: 16px; }
-.login-screen__title  { font-size: 28px; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
-.login-screen__sub    { font-size: 15px; color: var(--text-secondary); margin-bottom: 40px; line-height: 1.5; }
+.login-screen__title { font-size: 28px; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
+.login-screen__sub   { font-size: 15px; color: var(--text-secondary); margin-bottom: 40px; line-height: 1.5; max-width: 300px; }
 
 .btn--google {
   display: flex;
@@ -513,7 +660,7 @@ html, body {
 
 .btn--google:active { box-shadow: none; }
 
-/* ── INPUT / FORM ────────────────────────────────────────────────── */
+/* ── Input / form ────────────────────────────────────────────────── */
 .input {
   width: 100%;
   border: 1.5px solid var(--divider);
@@ -537,22 +684,7 @@ html, body {
   display: block;
 }
 
-/* ── UTILITIES ───────────────────────────────────────────────────── */
-.mt-8  { margin-top: 8px; }
-.mt-12 { margin-top: 12px; }
-.mt-16 { margin-top: 16px; }
-.flex  { display: flex; }
-.flex-between { display: flex; justify-content: space-between; align-items: center; }
-.flex-center  { display: flex; justify-content: center; align-items: center; }
-.gap-8  { gap: 8px; }
-.gap-12 { gap: 12px; }
-.text-sm    { font-size: 13px; }
-.text-bold  { font-weight: 700; }
-.text-muted { color: var(--text-secondary); }
-.text-accent { color: var(--accent); }
-.text-primary-color { color: var(--primary); }
-
-/* ── INSTÄLLNINGSMENY (bottom sheet) ─────────────────────────────── */
+/* ── Inställningsmeny (bottom sheet) ─────────────────────────────── */
 .settings-overlay {
   position: fixed;
   inset: 0;
@@ -567,24 +699,48 @@ html, body {
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: 16px 20px 32px;
   width: 100%;
-  max-width: var(--max-w);
+  max-width: 480px;
   margin: 0 auto;
   box-shadow: var(--elev-3);
   animation: slideUp 220ms ease;
 }
 
+@media (min-width: 768px) {
+  .settings-overlay { align-items: center; justify-content: flex-end; padding-right: 24px; }
+  .settings-sheet {
+    border-radius: var(--radius-lg);
+    max-width: 380px;
+    margin: 0;
+    animation: fadeIn 180ms ease;
+  }
+}
+
 .settings-handle {
-  width: 40px;
-  height: 4px;
+  width: 40px; height: 4px;
   background: var(--divider);
   border-radius: var(--radius-full);
   margin: 0 auto 20px;
 }
 
-@keyframes slideUp {
-  from { transform: translateY(100%); }
-  to   { transform: translateY(0); }
-}
+@media (min-width: 768px) { .settings-handle { display: none; } }
+
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes fadeIn  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Utilities ───────────────────────────────────────────────────── */
+.mt-8  { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.mt-16 { margin-top: 16px; }
+.flex  { display: flex; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.flex-center  { display: flex; justify-content: center; align-items: center; }
+.gap-8  { gap: 8px; }
+.gap-12 { gap: 12px; }
+.text-sm    { font-size: 13px; }
+.text-bold  { font-weight: 700; }
+.text-muted { color: var(--text-secondary); }
+.text-accent { color: var(--accent); }
+.text-primary-color { color: var(--primary); }
 </style>
 </head>
 <body>
@@ -1462,21 +1618,19 @@ function AreasScreen({ user, householdId }) {
 const { useState, useEffect } = React;
 
 function App() {
-  const [user, setUser]               = useState(undefined);
-  const [householdId, setHouseholdId] = useState(undefined);
-  const [household, setHousehold]     = useState(null);
-  const [tab, setTab]                 = useState('feed');
+  const [user, setUser]                 = useState(undefined);
+  const [householdId, setHouseholdId]   = useState(undefined);
+  const [household, setHousehold]       = useState(null);
+  const [tab, setTab]                   = useState('feed');
   const [showSettings, setShowSettings] = useState(false);
-  const [newCount]                    = useState(2);
+  const [newCount]                      = useState(2);
 
   // ── Auth-lyssnare ──────────────────────────────────────────────────
   useEffect(() => {
     const { auth, onAuthStateChanged } = window.__firebase;
     const unsub = onAuthStateChanged(auth, async u => {
       if (!u) {
-        setUser(null);
-        setHouseholdId(null);
-        setHousehold(null);
+        setUser(null); setHouseholdId(null); setHousehold(null);
         return;
       }
       setUser(u);
@@ -1486,7 +1640,7 @@ function App() {
     return unsub;
   }, []);
 
-  // ── Hämta hushållsdata när vi har ett ID ───────────────────────────
+  // ── Hämta hushållsdata ─────────────────────────────────────────────
   useEffect(() => {
     if (!householdId) return;
     const { db, doc, onSnapshot } = window.__firebase;
@@ -1525,15 +1679,13 @@ function App() {
     );
   }
 
-  // ── Ej inloggad ───────────────────────────────────────────────────
   if (user === null) return <LoginScreen onLogin={handleLogin} />;
 
-  // ── Inloggad men saknar hushåll ───────────────────────────────────
   if (!householdId) {
     return <HouseholdSetupScreen user={user} onComplete={handleHouseholdComplete} />;
   }
 
-  // ── Inloggad med hushåll ──────────────────────────────────────────
+  // ── Rendrera skärm ────────────────────────────────────────────────
   const skärmTitlar = {
     feed:      'Flöde',
     watchlist: 'Bevakning',
@@ -1552,15 +1704,60 @@ function App() {
     }
   }
 
+  const badge = { feed: newCount };
+
   return (
     <>
-      <TopBar
-        title={skärmTitlar[tab]}
-        onMenuOpen={() => setShowSettings(true)}
-      />
-      {visaSkärm()}
-      <BottomNav active={tab} onChange={setTab} badge={{ feed: newCount }} />
+      {/* ── Desktop sidebar ────────────────────────────────────────── */}
+      <aside className="sidebar">
+        <div className="sidebar__brand">
+          <Logo size={32} />
+          <span className="sidebar__brand-name">Flat Tracker</span>
+        </div>
 
+        <nav className="sidebar__nav">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              className={`sidebar__item ${tab === t.id ? 'active' : ''}`}
+              onClick={() => setTab(t.id)}
+            >
+              <span className="sidebar__item-icon">{t.icon}</span>
+              <span className="sidebar__item-label">{t.label}</span>
+              {badge[t.id] > 0 && (
+                <span className="sidebar__item-badge">{badge[t.id]}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar__footer">
+          <button className="sidebar__settings-btn" onClick={() => setShowSettings(true)}>
+            <div className="sidebar__avatar">
+              {user?.displayName?.[0]?.toUpperCase() || '?'}
+            </div>
+            <div style={{ flex: 1, textAlign: 'left' }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+                {user?.displayName}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-hint)' }}>Inställningar</div>
+            </div>
+            <span style={{ fontSize: 16 }}>⚙️</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Huvudinnehåll ──────────────────────────────────────────── */}
+      <div className="app-body">
+        <TopBar
+          title={skärmTitlar[tab]}
+          onMenuOpen={() => setShowSettings(true)}
+        />
+        {visaSkärm()}
+        <BottomNav active={tab} onChange={setTab} badge={badge} />
+      </div>
+
+      {/* ── Inställningsmeny ───────────────────────────────────────── */}
       {showSettings && (
         <SettingsMenu
           user={user}
