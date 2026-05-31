@@ -72,6 +72,7 @@ JS_FILES = [
     'src/utils.js',
     'src/firebase.js',
     'src/components.js',
+    'src/household.js',
     'src/screens.js',
     'src/app.js',
 ]
