@@ -1,28 +1,25 @@
-// screens.js — four main screens for Flat Tracker
+// screens.js — fyra huvudskärmar för Flat Tracker
 
-// ── FeedScreen ───────────────────────────────────────────────────────
-function FeedScreen({ user }) {
+// ── FlödesSkärm ──────────────────────────────────────────────────────
+function FeedScreen({ user, householdId }) {
   const [listings] = React.useState(MOCK_LISTINGS);
-
   const newCount = listings.filter(l => l.isNew).length;
 
   return (
     <div className="screen">
       <div className="flex-between" style={{ marginBottom: 16 }}>
-        <div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Watching <strong>{MOCK_AREAS.length}</strong> areas
-          </div>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+          Bevakar <strong>{MOCK_AREAS.length}</strong> områden
         </div>
-        {newCount > 0 && <Chip label={`${newCount} new`} variant="error" />}
+        {newCount > 0 && <Chip label={`${newCount} nya`} variant="error" />}
       </div>
 
-      <div className="section-header">Latest listings</div>
+      <div className="section-header">Senaste annonser</div>
       {listings.length === 0
         ? <EmptyState
             icon="🏠"
-            title="No listings yet"
-            text="Add streets to your watchlist to start receiving alerts."
+            title="Inga annonser ännu"
+            text="Lägg till gator i din bevakning för att börja få notiser."
           />
         : listings.map(l => <ListingCard key={l.id} listing={l} />)
       }
@@ -30,20 +27,20 @@ function FeedScreen({ user }) {
   );
 }
 
-// ── WatchlistScreen ──────────────────────────────────────────────────
-function WatchlistScreen({ user }) {
+// ── BevakningsSkärm ──────────────────────────────────────────────────
+function WatchlistScreen({ user, householdId }) {
   const [areas] = React.useState(MOCK_AREAS);
 
   return (
     <div className="screen">
-      <div className="section-header">Watched areas & streets</div>
+      <div className="section-header">Bevakade områden och gator</div>
 
       {areas.length === 0
         ? <EmptyState
             icon="📍"
-            title="No areas yet"
-            text="Add an area and select streets to watch."
-            action={{ label: '+ Add area', onClick: () => {} }}
+            title="Inga områden ännu"
+            text="Lägg till ett område och välj gator att bevaka."
+            action={{ label: '+ Lägg till område', onClick: () => {} }}
           />
         : areas.map(area => (
             <Card key={area.id}>
@@ -52,9 +49,9 @@ function WatchlistScreen({ user }) {
                   <div className="list-item__title">{area.name}</div>
                   <div className="list-item__sub">{area.city}</div>
                 </div>
-                <Chip label={area.popularity} variant={area.popularity === 'High' ? 'error' : 'accent'} />
+                <Chip label={area.popularity}
+                  variant={area.popularity === 'Hög' ? 'error' : 'accent'} />
               </div>
-
               <div className="flex gap-8 mt-12" style={{ flexWrap: 'wrap' }}>
                 {area.streets.map(s => (
                   <Chip key={s} label={s} variant="primary" />
@@ -65,22 +62,22 @@ function WatchlistScreen({ user }) {
       }
 
       <button className="btn btn--primary btn--full mt-16">
-        + Add area
+        + Lägg till område
       </button>
     </div>
   );
 }
 
-// ── HunterScreen ─────────────────────────────────────────────────────
-function HunterScreen({ user }) {
+// ── HunterSkärm ──────────────────────────────────────────────────────
+function HunterScreen({ user, householdId }) {
   const [messages, setMessages] = React.useState([
     {
       id: 'welcome',
       role: 'hunter',
-      text: "Hi! I'm Hunter 🤖 Ask me anything about apartments, price trends, or neighbourhood insights.",
+      text: 'Hej! Jag är Hunter 🤖 Fråga mig vad som helst om lägenheter, pristrender eller områdesinsikter.',
     }
   ]);
-  const [input, setInput] = React.useState('');
+  const [input, setInput]   = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const bottomRef = React.useRef(null);
 
@@ -113,13 +110,13 @@ function HunterScreen({ user }) {
         }),
       });
 
-      const data = await res.json();
-      const reply = data.content?.[0]?.text || 'Sorry, I could not get a response.';
+      const data  = await res.json();
+      const reply = data.content?.[0]?.text || 'Tyvärr kunde jag inte hämta ett svar.';
       setMessages(prev => [...prev, { id: localId(), role: 'hunter', text: reply }]);
     } catch (err) {
       setMessages(prev => [...prev, {
         id: localId(), role: 'hunter',
-        text: 'Something went wrong. Please try again.',
+        text: 'Något gick fel. Försök igen.',
       }]);
     } finally {
       setLoading(false);
@@ -142,9 +139,7 @@ function HunterScreen({ user }) {
           </div>
         ))}
         {loading && (
-          <div className="chat-bubble chat-bubble--hunter text-muted">
-            Thinking…
-          </div>
+          <div className="chat-bubble chat-bubble--hunter text-muted">Tänker…</div>
         )}
         <div ref={bottomRef} />
       </div>
@@ -153,7 +148,7 @@ function HunterScreen({ user }) {
         <textarea
           className="chat-input"
           rows={1}
-          placeholder="Ask Hunter anything…"
+          placeholder="Fråga Hunter något…"
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKey}
@@ -166,9 +161,9 @@ function HunterScreen({ user }) {
   );
 }
 
-// ── AreasScreen ──────────────────────────────────────────────────────
-function AreasScreen({ user }) {
-  const [areas] = React.useState(MOCK_AREAS);
+// ── OmrådesSkärm ─────────────────────────────────────────────────────
+function AreasScreen({ user, householdId }) {
+  const [areas]    = React.useState(MOCK_AREAS);
   const [selected, setSelected] = React.useState(null);
 
   if (selected) {
@@ -176,7 +171,7 @@ function AreasScreen({ user }) {
     return (
       <div className="screen">
         <button className="btn btn--text" style={{ marginLeft: -8 }} onClick={() => setSelected(null)}>
-          ← Back
+          ← Tillbaka
         </button>
 
         <div style={{ marginTop: 8 }}>
@@ -185,27 +180,27 @@ function AreasScreen({ user }) {
         </div>
 
         <Card style={{ marginTop: 16 }}>
-          <div className="section-header" style={{ marginTop: 0 }}>Overview</div>
+          <div className="section-header" style={{ marginTop: 0 }}>Översikt</div>
           <div className="list-item">
             <div className="list-item__content">
-              <div className="list-item__sub">Avg price / m²</div>
+              <div className="list-item__sub">Snittpris / m²</div>
               <div className="list-item__title">{formatPrice(area.avgPricePerSqm)}</div>
             </div>
           </div>
           <div className="list-item">
             <div className="list-item__content">
-              <div className="list-item__sub">Popularity</div>
+              <div className="list-item__sub">Popularitet</div>
               <div className="list-item__title">{area.popularity}</div>
             </div>
           </div>
         </Card>
 
-        <div className="section-header">Traits</div>
+        <div className="section-header">Karaktär</div>
         <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
           {area.traits.map(t => <Chip key={t} label={t} variant="success" />)}
         </div>
 
-        <div className="section-header">Streets</div>
+        <div className="section-header">Gator</div>
         <Card>
           {area.streets.map(s => (
             <div key={s} className="list-item">
@@ -222,17 +217,20 @@ function AreasScreen({ user }) {
 
   return (
     <div className="screen">
-      <div className="section-header">Areas</div>
+      <div className="section-header">Områden</div>
       {areas.map(area => (
         <Card key={area.id} onClick={() => setSelected(area.id)}>
           <div className="flex-between">
             <div>
               <div className="list-item__title">{area.name}</div>
-              <div className="list-item__sub">{area.city} · {area.streets.length} streets</div>
+              <div className="list-item__sub">{area.city} · {area.streets.length} gator</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div className="text-sm text-bold">{formatPrice(area.avgPricePerSqm)}<span className="text-muted">/m²</span></div>
-              <Chip label={area.popularity} variant={area.popularity === 'High' ? 'error' : 'accent'} />
+              <div className="text-sm text-bold">
+                {formatPrice(area.avgPricePerSqm)}<span className="text-muted">/m²</span>
+              </div>
+              <Chip label={area.popularity}
+                variant={area.popularity === 'Hög' ? 'error' : 'accent'} />
             </div>
           </div>
         </Card>

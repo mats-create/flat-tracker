@@ -1,33 +1,33 @@
 // constants.js — app-wide constants for Flat Tracker
 
 const APP_NAME    = 'Flat Tracker';
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '0.2.0';
 
-// ── Navigation tabs ──────────────────────────────────────────────────
+// ── Navigeringsflikar ────────────────────────────────────────────────
 const TABS = [
-  { id: 'feed',      label: 'Feed',      icon: '🏠' },
-  { id: 'watchlist', label: 'Watchlist', icon: '📍' },
-  { id: 'hunter',    label: 'Hunter',    icon: '🤖' },
-  { id: 'areas',     label: 'Areas',     icon: '🗺️' },
+  { id: 'feed',      label: 'Flöde',      icon: '🏠' },
+  { id: 'watchlist', label: 'Bevakning',  icon: '📍' },
+  { id: 'hunter',    label: 'Hunter',     icon: '🤖' },
+  { id: 'areas',     label: 'Områden',    icon: '🗺️' },
 ];
 
-// ── Hunter AI — system prompt ────────────────────────────────────────
-const HUNTER_SYSTEM_PROMPT = `You are Hunter, an expert AI assistant for apartment hunting in Sweden.
-You help users understand property markets, price trends, area characteristics,
-and street-level insights. You are concise, friendly, and data-driven.
-When discussing prices, always use SEK. When discussing areas, be specific
-and practical. If you don't have specific data, say so clearly and offer
-general guidance instead.`;
+// ── Hunter AI — systemprompt ─────────────────────────────────────────
+const HUNTER_SYSTEM_PROMPT = `Du är Hunter, en expert-AI-assistent för lägenhetssökande i Sverige.
+Du hjälper användare att förstå bostadsmarknaden, pristrender, områdeskaraktäristik
+och gatunivå-insikter. Du är koncis, vänlig och datadriven.
+Svara alltid på svenska. När du diskuterar priser, använd alltid SEK eller kronor.
+När du diskuterar områden, var specifik och praktisk.
+Om du saknar specifik data, säg det tydligt och erbjud generell vägledning istället.`;
 
-// ── Firestore collection names ───────────────────────────────────────
+// ── Firestore-samlingar ──────────────────────────────────────────────
 const COLLECTIONS = {
-  USERS:     'users',
-  WATCHLIST: 'watchlist',
-  LISTINGS:  'listings',
-  AREAS:     'areas',
+  USERS:      'users',
+  HOUSEHOLDS: 'households',
+  LISTINGS:   'listings',
+  AREAS:      'areas',
 };
 
-// ── Placeholder listings (used before real data source is connected) ─
+// ── Testdata — lägenheter ────────────────────────────────────────────
 const MOCK_LISTINGS = [
   {
     id: 'mock-1',
@@ -67,15 +67,15 @@ const MOCK_LISTINGS = [
   },
 ];
 
-// ── Placeholder areas ────────────────────────────────────────────────
+// ── Testdata — områden ───────────────────────────────────────────────
 const MOCK_AREAS = [
   {
     id: 'area-1',
     name: 'Centrum',
     city: 'Malmö',
     avgPricePerSqm: 48000,
-    popularity: 'High',
-    traits: ['Central', 'Vibrant', 'Walkable'],
+    popularity: 'Hög',
+    traits: ['Centralt', 'Levande', 'Gångvänligt'],
     streets: ['Drottninggatan', 'Södergatan', 'Stortorget'],
   },
   {
@@ -83,8 +83,8 @@ const MOCK_AREAS = [
     name: 'Möllevången',
     city: 'Malmö',
     avgPricePerSqm: 38000,
-    popularity: 'High',
-    traits: ['Multicultural', 'Trendy', 'Affordable'],
+    popularity: 'Hög',
+    traits: ['Mångkulturellt', 'Trendigt', 'Prisvärt'],
     streets: ['Möllevångstorget', 'Nobelvägen', 'Amiralsgatan'],
   },
   {
@@ -92,8 +92,8 @@ const MOCK_AREAS = [
     name: 'Limhamn',
     city: 'Malmö',
     avgPricePerSqm: 42000,
-    popularity: 'Medium',
-    traits: ['Family-friendly', 'Seaside', 'Quiet'],
+    popularity: 'Medel',
+    traits: ['Familjevänligt', 'Havsnära', 'Lugnt'],
     streets: ['Limhamnsvägen', 'Strandgatan', 'Hamnvägen'],
   },
 ];

@@ -1,4 +1,4 @@
-// components.js — shared UI components for Flat Tracker
+// components.js — delade UI-komponenter för Flat Tracker
 
 // ── TopBar ───────────────────────────────────────────────────────────
 function TopBar({ title, action }) {
@@ -52,7 +52,7 @@ function EmptyState({ icon, title, text, action }) {
   return (
     <div className="empty-state">
       <div className="empty-state__icon">{icon || '📭'}</div>
-      <div className="empty-state__title">{title || 'Nothing here yet'}</div>
+      <div className="empty-state__title">{title || 'Inget här ännu'}</div>
       {text && <div className="empty-state__text">{text}</div>}
       {action && (
         <button className="btn btn--primary mt-16" onClick={action.onClick}>
@@ -83,7 +83,7 @@ function ListingCard({ listing }) {
           <div className="list-item__title">{street}</div>
           <div className="list-item__sub">{area}</div>
         </div>
-        {isNew && <Chip label="NEW" variant="error" />}
+        {isNew && <Chip label="NY" variant="error" />}
       </div>
       <div className="flex gap-8 mt-12" style={{ flexWrap: 'wrap' }}>
         <Chip label={roomLabel(rooms)} variant="primary" />
@@ -105,11 +105,11 @@ function LoginScreen({ onLogin }) {
       <div className="login-screen__logo">🏢</div>
       <div className="login-screen__title">Flat Tracker</div>
       <div className="login-screen__sub">
-        Get instant alerts when apartments appear on your watched streets.
+        Få direktnotiser när lägenheter publiceras på dina bevakade gator.
       </div>
       <button className="btn--google" onClick={onLogin}>
         <span>G</span>
-        <span>Sign in with Google</span>
+        <span>Logga in med Google</span>
       </button>
     </div>
   );

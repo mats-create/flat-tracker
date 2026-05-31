@@ -1,34 +1,51 @@
-// app.js — root app component for Flat Tracker
+// app.js — rot-komponent för Flat Tracker
 
 const { useState, useEffect } = React;
 
 function App() {
-  const [user, setUser]     = useState(undefined);  // undefined = loading
-  const [tab, setTab]       = useState('feed');
-  const [newCount, setNewCount] = useState(2);       // mock badge count
+  const [user, setUser]             = useState(undefined);  // undefined = laddar
+  const [householdId, setHouseholdId] = useState(undefined); // undefined = laddar
+  const [tab, setTab]               = useState('feed');
+  const [newCount]                  = useState(2); // mock badge-räknare
 
-  // ── Auth listener ──────────────────────────────────────────────────
+  // ── Auth-lyssnare ──────────────────────────────────────────────────
   useEffect(() => {
     const { auth, onAuthStateChanged } = window.__firebase;
-    const unsub = onAuthStateChanged(auth, u => setUser(u || null));
+    const unsub = onAuthStateChanged(auth, async u => {
+      if (!u) {
+        setUser(null);
+        setHouseholdId(null);
+        return;
+      }
+      setUser(u);
+      // Kolla om användaren redan har ett hushåll
+      const hid = await getHouseholdId(u.uid);
+      setHouseholdId(hid || null);
+    });
     return unsub;
   }, []);
 
-  // ── Google sign-in ─────────────────────────────────────────────────
+  // ── Google-inloggning ──────────────────────────────────────────────
   function handleLogin() {
     const { auth, GoogleAuthProvider, signInWithPopup } = window.__firebase;
     const provider = new GoogleAuthProvider();
-    signInWithPopup(auth, provider).catch(err => console.error('Login error', err));
+    signInWithPopup(auth, provider).catch(err => console.error('Inloggningsfel', err));
   }
 
-  // ── Sign out ───────────────────────────────────────────────────────
+  // ── Logga ut ───────────────────────────────────────────────────────
   function handleSignOut() {
     const { auth, signOut } = window.__firebase;
     signOut(auth);
   }
 
-  // ── Loading splash ─────────────────────────────────────────────────
-  if (user === undefined) {
+  // ── Hushåll klart ─────────────────────────────────────────────────
+  async function handleHouseholdComplete() {
+    const hid = await getHouseholdId(user.uid);
+    setHouseholdId(hid);
+  }
+
+  // ── Laddar ────────────────────────────────────────────────────────
+  if (user === undefined || (user && householdId === undefined)) {
     return (
       <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Spinner />
@@ -36,26 +53,32 @@ function App() {
     );
   }
 
-  // ── Not signed in ──────────────────────────────────────────────────
+  // ── Ej inloggad ───────────────────────────────────────────────────
   if (user === null) {
     return <LoginScreen onLogin={handleLogin} />;
   }
 
-  // ── Signed in ──────────────────────────────────────────────────────
-  const screenTitles = {
-    feed:      'Feed',
-    watchlist: 'Watchlist',
+  // ── Inloggad men saknar hushåll ───────────────────────────────────
+  if (!householdId) {
+    return <HouseholdSetupScreen user={user} onComplete={handleHouseholdComplete} />;
+  }
+
+  // ── Inloggad med hushåll — visa appen ─────────────────────────────
+  const skärmTitlar = {
+    feed:      'Flöde',
+    watchlist: 'Bevakning',
     hunter:    'Hunter',
-    areas:     'Areas',
+    areas:     'Områden',
   };
 
-  function renderScreen() {
+  function visaSkärm() {
+    const props = { user, householdId };
     switch (tab) {
-      case 'feed':      return <FeedScreen user={user} />;
-      case 'watchlist': return <WatchlistScreen user={user} />;
-      case 'hunter':    return <HunterScreen user={user} />;
-      case 'areas':     return <AreasScreen user={user} />;
-      default:          return <FeedScreen user={user} />;
+      case 'feed':      return <FeedScreen {...props} />;
+      case 'watchlist': return <WatchlistScreen {...props} />;
+      case 'hunter':    return <HunterScreen {...props} />;
+      case 'areas':     return <AreasScreen {...props} />;
+      default:          return <FeedScreen {...props} />;
     }
   }
 
@@ -64,15 +87,15 @@ function App() {
   return (
     <>
       <TopBar
-        title={screenTitles[tab]}
-        action={{ icon: '👤', label: 'Sign out', onClick: handleSignOut }}
+        title={skärmTitlar[tab]}
+        action={{ icon: '👤', label: 'Logga ut', onClick: handleSignOut }}
       />
-      {renderScreen()}
+      {visaSkärm()}
       <BottomNav active={tab} onChange={setTab} badge={badge} />
     </>
   );
 }
 
-// ── Mount ────────────────────────────────────────────────────────────
+// ── Montera ───────────────────────────────────────────────────────────
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
