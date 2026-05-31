@@ -234,6 +234,7 @@ html, body {
 
   #root {
     flex-direction: row;
+    overflow: hidden;
   }
 
   /* ── Sidebar ───────────────────────────────────────────────────── */
@@ -351,6 +352,7 @@ html, body {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    position: relative;
   }
 
   /* ── Top bar på desktop ────────────────────────────────────────── */
@@ -372,6 +374,9 @@ html, body {
   }
 
   .top-bar__action:hover { background: var(--surface-2); }
+
+  /* ── Dölj kugghjul i toppraden på desktop (finns i sidebar) ───── */
+  .top-bar__action { display: none; }
 
   /* ── Screen på desktop ─────────────────────────────────────────── */
   .screen {
@@ -769,22 +774,39 @@ html, body {
   display: flex;
   flex-direction: column;
   animation: slideUp 220ms ease;
+  transform: translateY(100%);
+  transition: transform 220ms ease;
+  pointer-events: none;
 }
 
-/* Desktop: panel från höger */
+.io-flyout--open {
+  transform: translateY(0);
+  pointer-events: all;
+}
+
+/* Desktop: panel från höger — skjuter in innehållet */
 @media (min-width: 768px) {
-  .io-overlay { background: transparent; pointer-events: none; }
+  .io-overlay { display: none; }
+
   .io-flyout {
-    top: 0;
-    bottom: 0;
+    position: relative;
+    top: auto;
+    bottom: auto;
     left: auto;
-    right: 0;
-    width: 380px;
+    right: auto;
+    width: 0;
     height: 100%;
     border-radius: 0;
+    border-left: none;
+    animation: none;
+    overflow: hidden;
+    flex-shrink: 0;
+    transition: width 220ms ease;
+  }
+
+  .io-flyout--open {
+    width: 360px;
     border-left: 1px solid var(--divider);
-    animation: slideInRight 220ms ease;
-    pointer-events: all;
   }
 }
 
@@ -853,7 +875,11 @@ html, body {
 .io-fab--active { background: var(--primary-dark); }
 
 @media (min-width: 768px) {
-  .io-fab { bottom: 24px; right: 24px; }
+  .io-fab {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+  }
 }
 </style>
 </head>
@@ -1414,14 +1440,12 @@ function IoFlyout({ household, open, onClose }) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   }
 
-  if (!open) return null;
-
   return (
     <>
-      {/* Overlay — stänger flyouten vid klick utanför */}
-      <div className="io-overlay" onClick={onClose} />
+      {/* Overlay — bara på mobil */}
+      {open && <div className="io-overlay" onClick={onClose} />}
 
-      <div className="io-flyout">
+      <div className={`io-flyout ${open ? 'io-flyout--open' : ''}`}>
         {/* Header */}
         <div className="io-flyout__header">
           <div className="flex gap-8" style={{ alignItems: 'center' }}>
@@ -2008,12 +2032,11 @@ function App() {
         />
         {visaSkärm()}
         <BottomNav active={tab} onChange={t => { setTab(t); setShowIo(false); }} badge={badge} />
+        {/* Io FAB — följer med app-body på desktop */}
+        <IoButton onClick={() => setShowIo(v => !v)} active={showIo} />
       </div>
 
-      {/* ── Io FAB (mobil) ─────────────────────────────────────────── */}
-      <IoButton onClick={() => setShowIo(v => !v)} active={showIo} />
-
-      {/* ── Io Flyout ──────────────────────────────────────────────── */}
+      {/* ── Io Flyout — rotnivå så den skjuter in layouten ─────────── */}
       <IoFlyout
         household={household}
         open={showIo}
