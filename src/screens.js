@@ -126,12 +126,15 @@ function HunterScreen({ user, householdId, household }) {
       });
 
       const data  = await res.json();
+      if (data.error) {
+        throw new Error(data.error.message || JSON.stringify(data.error));
+      }
       const reply = data.content?.[0]?.text || 'Tyvärr kunde jag inte hämta ett svar.';
       setMessages(prev => [...prev, { id: localId(), role: 'hunter', text: reply }]);
     } catch (err) {
       setMessages(prev => [...prev, {
         id: localId(), role: 'hunter',
-        text: 'Något gick fel. Försök igen.',
+        text: `Fel: ${err.message || JSON.stringify(err)}`,
       }]);
     } finally {
       setLoading(false);
