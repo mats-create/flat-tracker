@@ -756,8 +756,9 @@ html, body {
 /* ---- src/constants.js ---- */
 // constants.js — app-wide constants for Flat Tracker
 
-const APP_NAME    = 'Flat Tracker';
-const APP_VERSION = '0.2.0';
+const APP_NAME     = 'Flat Tracker';
+const APP_VERSION  = '0.2.0';
+const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
 
 // ── Navigeringsflikar ────────────────────────────────────────────────
 const TABS = [
@@ -1579,7 +1580,7 @@ function HunterScreen({ user, householdId, household }) {
           'anthropic-dangerous-client-side-api-key-access': 'true',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: CLAUDE_MODEL,
           max_tokens: 1000,
           system: HUNTER_SYSTEM_PROMPT,
           messages: [...history, { role: 'user', content: text }],
