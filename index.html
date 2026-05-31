@@ -560,33 +560,33 @@ html, body {
 // constants.js — app-wide constants for Flat Tracker
 
 const APP_NAME    = 'Flat Tracker';
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '0.2.0';
 
-// ── Navigation tabs ──────────────────────────────────────────────────
+// ── Navigeringsflikar ────────────────────────────────────────────────
 const TABS = [
-  { id: 'feed',      label: 'Feed',      icon: '🏠' },
-  { id: 'watchlist', label: 'Watchlist', icon: '📍' },
-  { id: 'hunter',    label: 'Hunter',    icon: '🤖' },
-  { id: 'areas',     label: 'Areas',     icon: '🗺️' },
+  { id: 'feed',      label: 'Flöde',      icon: '🏠' },
+  { id: 'watchlist', label: 'Bevakning',  icon: '📍' },
+  { id: 'hunter',    label: 'Hunter',     icon: '🤖' },
+  { id: 'areas',     label: 'Områden',    icon: '🗺️' },
 ];
 
-// ── Hunter AI — system prompt ────────────────────────────────────────
-const HUNTER_SYSTEM_PROMPT = `You are Hunter, an expert AI assistant for apartment hunting in Sweden.
-You help users understand property markets, price trends, area characteristics,
-and street-level insights. You are concise, friendly, and data-driven.
-When discussing prices, always use SEK. When discussing areas, be specific
-and practical. If you don't have specific data, say so clearly and offer
-general guidance instead.`;
+// ── Hunter AI — systemprompt ─────────────────────────────────────────
+const HUNTER_SYSTEM_PROMPT = `Du är Hunter, en expert-AI-assistent för lägenhetssökande i Sverige.
+Du hjälper användare att förstå bostadsmarknaden, pristrender, områdeskaraktäristik
+och gatunivå-insikter. Du är koncis, vänlig och datadriven.
+Svara alltid på svenska. När du diskuterar priser, använd alltid SEK eller kronor.
+När du diskuterar områden, var specifik och praktisk.
+Om du saknar specifik data, säg det tydligt och erbjud generell vägledning istället.`;
 
-// ── Firestore collection names ───────────────────────────────────────
+// ── Firestore-samlingar ──────────────────────────────────────────────
 const COLLECTIONS = {
-  USERS:     'users',
-  WATCHLIST: 'watchlist',
-  LISTINGS:  'listings',
-  AREAS:     'areas',
+  USERS:      'users',
+  HOUSEHOLDS: 'households',
+  LISTINGS:   'listings',
+  AREAS:      'areas',
 };
 
-// ── Placeholder listings (used before real data source is connected) ─
+// ── Testdata — lägenheter ────────────────────────────────────────────
 const MOCK_LISTINGS = [
   {
     id: 'mock-1',
@@ -626,15 +626,15 @@ const MOCK_LISTINGS = [
   },
 ];
 
-// ── Placeholder areas ────────────────────────────────────────────────
+// ── Testdata — områden ───────────────────────────────────────────────
 const MOCK_AREAS = [
   {
     id: 'area-1',
     name: 'Centrum',
     city: 'Malmö',
     avgPricePerSqm: 48000,
-    popularity: 'High',
-    traits: ['Central', 'Vibrant', 'Walkable'],
+    popularity: 'Hög',
+    traits: ['Centralt', 'Levande', 'Gångvänligt'],
     streets: ['Drottninggatan', 'Södergatan', 'Stortorget'],
   },
   {
@@ -642,8 +642,8 @@ const MOCK_AREAS = [
     name: 'Möllevången',
     city: 'Malmö',
     avgPricePerSqm: 38000,
-    popularity: 'High',
-    traits: ['Multicultural', 'Trendy', 'Affordable'],
+    popularity: 'Hög',
+    traits: ['Mångkulturellt', 'Trendigt', 'Prisvärt'],
     streets: ['Möllevångstorget', 'Nobelvägen', 'Amiralsgatan'],
   },
   {
@@ -651,56 +651,66 @@ const MOCK_AREAS = [
     name: 'Limhamn',
     city: 'Malmö',
     avgPricePerSqm: 42000,
-    popularity: 'Medium',
-    traits: ['Family-friendly', 'Seaside', 'Quiet'],
+    popularity: 'Medel',
+    traits: ['Familjevänligt', 'Havsnära', 'Lugnt'],
     streets: ['Limhamnsvägen', 'Strandgatan', 'Hamnvägen'],
   },
 ];
 
 /* ---- src/utils.js ---- */
-// utils.js — pure helper functions for Flat Tracker
+// utils.js — hjälpfunktioner för Flat Tracker
 
-// ── Format price in SEK ──────────────────────────────────────────────
+// ── Formatera pris i SEK ─────────────────────────────────────────────
 function formatPrice(sek) {
   if (!sek) return '—';
   if (sek >= 1000000) return (sek / 1000000).toFixed(1).replace('.', ',') + ' mkr';
   return sek.toLocaleString('sv-SE') + ' kr';
 }
 
-// ── Format relative time (e.g. "5 min ago") ─────────────────────────
+// ── Relativ tid (t.ex. "5 min sedan") ───────────────────────────────
 function timeAgo(date) {
   const seconds = Math.floor((Date.now() - new Date(date)) / 1000);
-  if (seconds < 60)  return 'Just now';
-  if (seconds < 3600) return Math.floor(seconds / 60) + ' min ago';
-  if (seconds < 86400) return Math.floor(seconds / 3600) + ' h ago';
-  return Math.floor(seconds / 86400) + ' d ago';
+  if (seconds < 60)   return 'Just nu';
+  if (seconds < 3600) return Math.floor(seconds / 60) + ' min sedan';
+  if (seconds < 86400) return Math.floor(seconds / 3600) + ' tim sedan';
+  return Math.floor(seconds / 86400) + ' d sedan';
 }
 
-// ── Format sqm ───────────────────────────────────────────────────────
+// ── Kvadratmeter ─────────────────────────────────────────────────────
 function formatSqm(sqm) {
   return sqm ? sqm + ' m²' : '—';
 }
 
-// ── Format rent ──────────────────────────────────────────────────────
+// ── Månadsavgift ─────────────────────────────────────────────────────
 function formatRent(kr) {
-  return kr ? kr.toLocaleString('sv-SE') + ' kr/mo' : '—';
+  return kr ? kr.toLocaleString('sv-SE') + ' kr/mån' : '—';
 }
 
-// ── Pluralise rooms ──────────────────────────────────────────────────
+// ── Antal rum ────────────────────────────────────────────────────────
 function roomLabel(n) {
   if (!n) return '—';
-  return n === 1 ? '1 room' : n + ' rooms';
+  return n === 1 ? '1 rum' : n + ' rum';
 }
 
-// ── Truncate text ────────────────────────────────────────────────────
+// ── Trunkera text ────────────────────────────────────────────────────
 function truncate(str, max = 40) {
   if (!str) return '';
   return str.length <= max ? str : str.slice(0, max - 1) + '…';
 }
 
-// ── Generate a simple local ID ───────────────────────────────────────
+// ── Generera lokalt ID ───────────────────────────────────────────────
 function localId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+// ── Generera inbjudningskod (6 tecken) ───────────────────────────────
+function generateInviteCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
 }
 
 /* ---- src/firebase.js ---- */
@@ -716,7 +726,7 @@ function localId() {
 //   areas/{id}                       — area profiles
 
 /* ---- src/components.js ---- */
-// components.js — shared UI components for Flat Tracker
+// components.js — delade UI-komponenter för Flat Tracker
 
 // ── TopBar ───────────────────────────────────────────────────────────
 function TopBar({ title, action }) {
@@ -770,7 +780,7 @@ function EmptyState({ icon, title, text, action }) {
   return (
     <div className="empty-state">
       <div className="empty-state__icon">{icon || '📭'}</div>
-      <div className="empty-state__title">{title || 'Nothing here yet'}</div>
+      <div className="empty-state__title">{title || 'Inget här ännu'}</div>
       {text && <div className="empty-state__text">{text}</div>}
       {action && (
         <button className="btn btn--primary mt-16" onClick={action.onClick}>
@@ -801,7 +811,7 @@ function ListingCard({ listing }) {
           <div className="list-item__title">{street}</div>
           <div className="list-item__sub">{area}</div>
         </div>
-        {isNew && <Chip label="NEW" variant="error" />}
+        {isNew && <Chip label="NY" variant="error" />}
       </div>
       <div className="flex gap-8 mt-12" style={{ flexWrap: 'wrap' }}>
         <Chip label={roomLabel(rooms)} variant="primary" />
@@ -823,42 +833,39 @@ function LoginScreen({ onLogin }) {
       <div className="login-screen__logo">🏢</div>
       <div className="login-screen__title">Flat Tracker</div>
       <div className="login-screen__sub">
-        Get instant alerts when apartments appear on your watched streets.
+        Få direktnotiser när lägenheter publiceras på dina bevakade gator.
       </div>
       <button className="btn--google" onClick={onLogin}>
         <span>G</span>
-        <span>Sign in with Google</span>
+        <span>Logga in med Google</span>
       </button>
     </div>
   );
 }
 
 /* ---- src/screens.js ---- */
-// screens.js — four main screens for Flat Tracker
+// screens.js — fyra huvudskärmar för Flat Tracker
 
-// ── FeedScreen ───────────────────────────────────────────────────────
-function FeedScreen({ user }) {
+// ── FlödesSkärm ──────────────────────────────────────────────────────
+function FeedScreen({ user, householdId }) {
   const [listings] = React.useState(MOCK_LISTINGS);
-
   const newCount = listings.filter(l => l.isNew).length;
 
   return (
     <div className="screen">
       <div className="flex-between" style={{ marginBottom: 16 }}>
-        <div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Watching <strong>{MOCK_AREAS.length}</strong> areas
-          </div>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+          Bevakar <strong>{MOCK_AREAS.length}</strong> områden
         </div>
-        {newCount > 0 && <Chip label={`${newCount} new`} variant="error" />}
+        {newCount > 0 && <Chip label={`${newCount} nya`} variant="error" />}
       </div>
 
-      <div className="section-header">Latest listings</div>
+      <div className="section-header">Senaste annonser</div>
       {listings.length === 0
         ? <EmptyState
             icon="🏠"
-            title="No listings yet"
-            text="Add streets to your watchlist to start receiving alerts."
+            title="Inga annonser ännu"
+            text="Lägg till gator i din bevakning för att börja få notiser."
           />
         : listings.map(l => <ListingCard key={l.id} listing={l} />)
       }
@@ -866,20 +873,20 @@ function FeedScreen({ user }) {
   );
 }
 
-// ── WatchlistScreen ──────────────────────────────────────────────────
-function WatchlistScreen({ user }) {
+// ── BevakningsSkärm ──────────────────────────────────────────────────
+function WatchlistScreen({ user, householdId }) {
   const [areas] = React.useState(MOCK_AREAS);
 
   return (
     <div className="screen">
-      <div className="section-header">Watched areas & streets</div>
+      <div className="section-header">Bevakade områden och gator</div>
 
       {areas.length === 0
         ? <EmptyState
             icon="📍"
-            title="No areas yet"
-            text="Add an area and select streets to watch."
-            action={{ label: '+ Add area', onClick: () => {} }}
+            title="Inga områden ännu"
+            text="Lägg till ett område och välj gator att bevaka."
+            action={{ label: '+ Lägg till område', onClick: () => {} }}
           />
         : areas.map(area => (
             <Card key={area.id}>
@@ -888,9 +895,9 @@ function WatchlistScreen({ user }) {
                   <div className="list-item__title">{area.name}</div>
                   <div className="list-item__sub">{area.city}</div>
                 </div>
-                <Chip label={area.popularity} variant={area.popularity === 'High' ? 'error' : 'accent'} />
+                <Chip label={area.popularity}
+                  variant={area.popularity === 'Hög' ? 'error' : 'accent'} />
               </div>
-
               <div className="flex gap-8 mt-12" style={{ flexWrap: 'wrap' }}>
                 {area.streets.map(s => (
                   <Chip key={s} label={s} variant="primary" />
@@ -901,22 +908,22 @@ function WatchlistScreen({ user }) {
       }
 
       <button className="btn btn--primary btn--full mt-16">
-        + Add area
+        + Lägg till område
       </button>
     </div>
   );
 }
 
-// ── HunterScreen ─────────────────────────────────────────────────────
-function HunterScreen({ user }) {
+// ── HunterSkärm ──────────────────────────────────────────────────────
+function HunterScreen({ user, householdId }) {
   const [messages, setMessages] = React.useState([
     {
       id: 'welcome',
       role: 'hunter',
-      text: "Hi! I'm Hunter 🤖 Ask me anything about apartments, price trends, or neighbourhood insights.",
+      text: 'Hej! Jag är Hunter 🤖 Fråga mig vad som helst om lägenheter, pristrender eller områdesinsikter.',
     }
   ]);
-  const [input, setInput] = React.useState('');
+  const [input, setInput]   = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const bottomRef = React.useRef(null);
 
@@ -949,13 +956,13 @@ function HunterScreen({ user }) {
         }),
       });
 
-      const data = await res.json();
-      const reply = data.content?.[0]?.text || 'Sorry, I could not get a response.';
+      const data  = await res.json();
+      const reply = data.content?.[0]?.text || 'Tyvärr kunde jag inte hämta ett svar.';
       setMessages(prev => [...prev, { id: localId(), role: 'hunter', text: reply }]);
     } catch (err) {
       setMessages(prev => [...prev, {
         id: localId(), role: 'hunter',
-        text: 'Something went wrong. Please try again.',
+        text: 'Något gick fel. Försök igen.',
       }]);
     } finally {
       setLoading(false);
@@ -978,9 +985,7 @@ function HunterScreen({ user }) {
           </div>
         ))}
         {loading && (
-          <div className="chat-bubble chat-bubble--hunter text-muted">
-            Thinking…
-          </div>
+          <div className="chat-bubble chat-bubble--hunter text-muted">Tänker…</div>
         )}
         <div ref={bottomRef} />
       </div>
@@ -989,7 +994,7 @@ function HunterScreen({ user }) {
         <textarea
           className="chat-input"
           rows={1}
-          placeholder="Ask Hunter anything…"
+          placeholder="Fråga Hunter något…"
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKey}
@@ -1002,9 +1007,9 @@ function HunterScreen({ user }) {
   );
 }
 
-// ── AreasScreen ──────────────────────────────────────────────────────
-function AreasScreen({ user }) {
-  const [areas] = React.useState(MOCK_AREAS);
+// ── OmrådesSkärm ─────────────────────────────────────────────────────
+function AreasScreen({ user, householdId }) {
+  const [areas]    = React.useState(MOCK_AREAS);
   const [selected, setSelected] = React.useState(null);
 
   if (selected) {
@@ -1012,7 +1017,7 @@ function AreasScreen({ user }) {
     return (
       <div className="screen">
         <button className="btn btn--text" style={{ marginLeft: -8 }} onClick={() => setSelected(null)}>
-          ← Back
+          ← Tillbaka
         </button>
 
         <div style={{ marginTop: 8 }}>
@@ -1021,27 +1026,27 @@ function AreasScreen({ user }) {
         </div>
 
         <Card style={{ marginTop: 16 }}>
-          <div className="section-header" style={{ marginTop: 0 }}>Overview</div>
+          <div className="section-header" style={{ marginTop: 0 }}>Översikt</div>
           <div className="list-item">
             <div className="list-item__content">
-              <div className="list-item__sub">Avg price / m²</div>
+              <div className="list-item__sub">Snittpris / m²</div>
               <div className="list-item__title">{formatPrice(area.avgPricePerSqm)}</div>
             </div>
           </div>
           <div className="list-item">
             <div className="list-item__content">
-              <div className="list-item__sub">Popularity</div>
+              <div className="list-item__sub">Popularitet</div>
               <div className="list-item__title">{area.popularity}</div>
             </div>
           </div>
         </Card>
 
-        <div className="section-header">Traits</div>
+        <div className="section-header">Karaktär</div>
         <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
           {area.traits.map(t => <Chip key={t} label={t} variant="success" />)}
         </div>
 
-        <div className="section-header">Streets</div>
+        <div className="section-header">Gator</div>
         <Card>
           {area.streets.map(s => (
             <div key={s} className="list-item">
@@ -1058,17 +1063,20 @@ function AreasScreen({ user }) {
 
   return (
     <div className="screen">
-      <div className="section-header">Areas</div>
+      <div className="section-header">Områden</div>
       {areas.map(area => (
         <Card key={area.id} onClick={() => setSelected(area.id)}>
           <div className="flex-between">
             <div>
               <div className="list-item__title">{area.name}</div>
-              <div className="list-item__sub">{area.city} · {area.streets.length} streets</div>
+              <div className="list-item__sub">{area.city} · {area.streets.length} gator</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div className="text-sm text-bold">{formatPrice(area.avgPricePerSqm)}<span className="text-muted">/m²</span></div>
-              <Chip label={area.popularity} variant={area.popularity === 'High' ? 'error' : 'accent'} />
+              <div className="text-sm text-bold">
+                {formatPrice(area.avgPricePerSqm)}<span className="text-muted">/m²</span>
+              </div>
+              <Chip label={area.popularity}
+                variant={area.popularity === 'Hög' ? 'error' : 'accent'} />
             </div>
           </div>
         </Card>
@@ -1078,37 +1086,54 @@ function AreasScreen({ user }) {
 }
 
 /* ---- src/app.js ---- */
-// app.js — root app component for Flat Tracker
+// app.js — rot-komponent för Flat Tracker
 
 const { useState, useEffect } = React;
 
 function App() {
-  const [user, setUser]     = useState(undefined);  // undefined = loading
-  const [tab, setTab]       = useState('feed');
-  const [newCount, setNewCount] = useState(2);       // mock badge count
+  const [user, setUser]             = useState(undefined);  // undefined = laddar
+  const [householdId, setHouseholdId] = useState(undefined); // undefined = laddar
+  const [tab, setTab]               = useState('feed');
+  const [newCount]                  = useState(2); // mock badge-räknare
 
-  // ── Auth listener ──────────────────────────────────────────────────
+  // ── Auth-lyssnare ──────────────────────────────────────────────────
   useEffect(() => {
     const { auth, onAuthStateChanged } = window.__firebase;
-    const unsub = onAuthStateChanged(auth, u => setUser(u || null));
+    const unsub = onAuthStateChanged(auth, async u => {
+      if (!u) {
+        setUser(null);
+        setHouseholdId(null);
+        return;
+      }
+      setUser(u);
+      // Kolla om användaren redan har ett hushåll
+      const hid = await getHouseholdId(u.uid);
+      setHouseholdId(hid || null);
+    });
     return unsub;
   }, []);
 
-  // ── Google sign-in ─────────────────────────────────────────────────
+  // ── Google-inloggning ──────────────────────────────────────────────
   function handleLogin() {
     const { auth, GoogleAuthProvider, signInWithPopup } = window.__firebase;
     const provider = new GoogleAuthProvider();
-    signInWithPopup(auth, provider).catch(err => console.error('Login error', err));
+    signInWithPopup(auth, provider).catch(err => console.error('Inloggningsfel', err));
   }
 
-  // ── Sign out ───────────────────────────────────────────────────────
+  // ── Logga ut ───────────────────────────────────────────────────────
   function handleSignOut() {
     const { auth, signOut } = window.__firebase;
     signOut(auth);
   }
 
-  // ── Loading splash ─────────────────────────────────────────────────
-  if (user === undefined) {
+  // ── Hushåll klart ─────────────────────────────────────────────────
+  async function handleHouseholdComplete() {
+    const hid = await getHouseholdId(user.uid);
+    setHouseholdId(hid);
+  }
+
+  // ── Laddar ────────────────────────────────────────────────────────
+  if (user === undefined || (user && householdId === undefined)) {
     return (
       <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Spinner />
@@ -1116,26 +1141,32 @@ function App() {
     );
   }
 
-  // ── Not signed in ──────────────────────────────────────────────────
+  // ── Ej inloggad ───────────────────────────────────────────────────
   if (user === null) {
     return <LoginScreen onLogin={handleLogin} />;
   }
 
-  // ── Signed in ──────────────────────────────────────────────────────
-  const screenTitles = {
-    feed:      'Feed',
-    watchlist: 'Watchlist',
+  // ── Inloggad men saknar hushåll ───────────────────────────────────
+  if (!householdId) {
+    return <HouseholdSetupScreen user={user} onComplete={handleHouseholdComplete} />;
+  }
+
+  // ── Inloggad med hushåll — visa appen ─────────────────────────────
+  const skärmTitlar = {
+    feed:      'Flöde',
+    watchlist: 'Bevakning',
     hunter:    'Hunter',
-    areas:     'Areas',
+    areas:     'Områden',
   };
 
-  function renderScreen() {
+  function visaSkärm() {
+    const props = { user, householdId };
     switch (tab) {
-      case 'feed':      return <FeedScreen user={user} />;
-      case 'watchlist': return <WatchlistScreen user={user} />;
-      case 'hunter':    return <HunterScreen user={user} />;
-      case 'areas':     return <AreasScreen user={user} />;
-      default:          return <FeedScreen user={user} />;
+      case 'feed':      return <FeedScreen {...props} />;
+      case 'watchlist': return <WatchlistScreen {...props} />;
+      case 'hunter':    return <HunterScreen {...props} />;
+      case 'areas':     return <AreasScreen {...props} />;
+      default:          return <FeedScreen {...props} />;
     }
   }
 
@@ -1144,16 +1175,16 @@ function App() {
   return (
     <>
       <TopBar
-        title={screenTitles[tab]}
-        action={{ icon: '👤', label: 'Sign out', onClick: handleSignOut }}
+        title={skärmTitlar[tab]}
+        action={{ icon: '👤', label: 'Logga ut', onClick: handleSignOut }}
       />
-      {renderScreen()}
+      {visaSkärm()}
       <BottomNav active={tab} onChange={setTab} badge={badge} />
     </>
   );
 }
 
-// ── Mount ────────────────────────────────────────────────────────────
+// ── Montera ───────────────────────────────────────────────────────────
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
 </script>
