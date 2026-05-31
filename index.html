@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1565C0">
+<meta name="description" content="Flat Tracker — instant apartment alerts for your streets">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Flat Tracker</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import { getFirestore, collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc,
+    getDocs, onSnapshot, query, orderBy, where, serverTimestamp }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: "REPLACE_WITH_YOUR_API_KEY",
+    authDomain: "REPLACE_WITH_YOUR_AUTH_DOMAIN",
+    projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
+    storageBucket: "REPLACE_WITH_YOUR_STORAGE_BUCKET",
+    messagingSenderId: "REPLACE_WITH_YOUR_SENDER_ID",
+    appId: "REPLACE_WITH_YOUR_APP_ID"
+  };
+
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+
+  window.__firebase = {
+    auth, db, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+    collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc,
+    getDocs, onSnapshot, query, orderBy, where, serverTimestamp
+  };
+</script>
+
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   FLAT TRACKER — style.css
+   Material Design 3 tokens, mobile-first
+═══════════════════════════════════════════════════════════════════ */
+
+/* ── RESET ───────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── DESIGN TOKENS ───────────────────────────────────────────────── */
+:root {
+  /* Brand */
+  --primary:       #1565C0;   /* MD Blue 800 */
+  --primary-light: #1E88E5;   /* MD Blue 600 */
+  --primary-dark:  #0D47A1;   /* MD Blue 900 */
+  --accent:        #FF6F00;   /* MD Amber 900 — alert/CTA */
+  --accent-light:  #FFB300;   /* MD Amber 600 */
+
+  /* Surface */
+  --bg:            #F5F7FA;
+  --surface:       #FFFFFF;
+  --surface-2:     #EEF2F7;
+  --divider:       rgba(0,0,0,0.10);
+
+  /* Text */
+  --text-primary:  #1A1A2E;
+  --text-secondary:#5C6B7A;
+  --text-hint:     #9AA5B1;
+  --text-on-primary: #FFFFFF;
+
+  /* Semantic */
+  --success:       #2E7D32;
+  --warning:       #F57F17;
+  --error:         #C62828;
+  --new-badge:     #E53935;
+
+  /* Geometry */
+  --radius:        12px;
+  --radius-sm:     8px;
+  --radius-lg:     16px;
+  --radius-full:   999px;
+
+  /* Layout */
+  --nav-h:         64px;
+  --top-h:         56px;
+  --max-w:         480px;    /* max content width on wide screens */
+
+  /* Elevation (box-shadow) */
+  --elev-1: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+  --elev-2: 0 3px 6px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08);
+  --elev-3: 0 6px 16px rgba(0,0,0,0.12), 0 3px 6px rgba(0,0,0,0.08);
+
+  /* Transitions */
+  --transition: 180ms ease;
+}
+
+/* ── BASE ─────────────────────────────────────────────────────────── */
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Roboto', sans-serif;
+  font-size: 16px;
+  color: var(--text-primary);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  max-width: var(--max-w);
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── TOP APP BAR ─────────────────────────────────────────────────── */
+.top-bar {
+  height: var(--top-h);
+  background: var(--primary);
+  color: var(--text-on-primary);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  flex-shrink: 0;
+  box-shadow: var(--elev-2);
+  z-index: 10;
+}
+
+.top-bar__title {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0.15px;
+  flex: 1;
+}
+
+.top-bar__logo {
+  font-size: 22px;
+}
+
+.top-bar__action {
+  background: none;
+  border: none;
+  color: var(--text-on-primary);
+  padding: 8px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition);
+}
+
+.top-bar__action:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+/* ── SCREEN CONTENT ──────────────────────────────────────────────── */
+.screen {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+  padding-bottom: calc(var(--nav-h) + 16px);
+  -webkit-overflow-scrolling: touch;
+}
+
+.screen::-webkit-scrollbar { display: none; }
+
+/* ── BOTTOM NAVIGATION ───────────────────────────────────────────── */
+.bottom-nav {
+  height: var(--nav-h);
+  background: var(--surface);
+  border-top: 1px solid var(--divider);
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+  z-index: 10;
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 4px;
+  transition: background var(--transition);
+  position: relative;
+  color: var(--text-hint);
+}
+
+.nav-item:active { background: var(--surface-2); }
+
+.nav-item.active { color: var(--primary); }
+
+.nav-item__icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.nav-item__label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.nav-item__badge {
+  position: absolute;
+  top: 6px;
+  right: calc(50% - 18px);
+  background: var(--new-badge);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── CARD ─────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--elev-1);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.card--accent {
+  border-left: 4px solid var(--accent);
+}
+
+.card--new {
+  border-left: 4px solid var(--new-badge);
+}
+
+/* ── SECTION HEADER ──────────────────────────────────────────────── */
+.section-header {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 20px 0 10px;
+}
+
+.section-header:first-child { margin-top: 0; }
+
+/* ── BADGE / CHIP ────────────────────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.chip--primary  { background: #E3F0FF; color: var(--primary); }
+.chip--accent   { background: #FFF3E0; color: var(--warning); }
+.chip--success  { background: #E8F5E9; color: var(--success); }
+.chip--error    { background: #FFEBEE; color: var(--error);   }
+.chip--new      { background: var(--new-badge); color: #fff;  }
+
+/* ── BUTTON ──────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  border: none;
+  cursor: pointer;
+  transition: box-shadow var(--transition), opacity var(--transition);
+}
+
+.btn--primary {
+  background: var(--primary);
+  color: var(--text-on-primary);
+  box-shadow: var(--elev-1);
+}
+
+.btn--primary:active { box-shadow: none; opacity: 0.9; }
+
+.btn--text {
+  background: none;
+  color: var(--primary);
+  padding: 8px 12px;
+}
+
+.btn--full { width: 100%; }
+
+/* ── FAB (Floating Action Button) ────────────────────────────────── */
+.fab {
+  position: fixed;
+  bottom: calc(var(--nav-h) + 16px);
+  right: 16px;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  box-shadow: var(--elev-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition), box-shadow var(--transition);
+  z-index: 20;
+}
+
+.fab:active { transform: scale(0.95); box-shadow: var(--elev-1); }
+
+/* ── LIST ITEM ───────────────────────────────────────────────────── */
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.list-item:last-child { border-bottom: none; }
+
+.list-item__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.list-item__content { flex: 1; min-width: 0; }
+.list-item__title   { font-size: 15px; font-weight: 500; }
+.list-item__sub     { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+
+/* ── EMPTY STATE ─────────────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-hint);
+}
+
+.empty-state__icon  { font-size: 48px; margin-bottom: 12px; }
+.empty-state__title { font-size: 17px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+.empty-state__text  { font-size: 14px; line-height: 1.5; }
+
+/* ── LOADING SPINNER ─────────────────────────────────────────────── */
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--surface-2);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 32px auto;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── HUNTER CHAT ─────────────────────────────────────────────────── */
+.chat-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  padding-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-messages::-webkit-scrollbar { display: none; }
+
+.chat-bubble {
+  max-width: 82%;
+  padding: 10px 14px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.chat-bubble--user {
+  align-self: flex-end;
+  background: var(--primary);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-bubble--hunter {
+  align-self: flex-start;
+  background: var(--surface);
+  color: var(--text-primary);
+  border-bottom-left-radius: 4px;
+  box-shadow: var(--elev-1);
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--divider);
+  align-items: flex-end;
+}
+
+.chat-input {
+  flex: 1;
+  border: 1.5px solid var(--divider);
+  border-radius: var(--radius-lg);
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  background: var(--bg);
+  color: var(--text-primary);
+  transition: border-color var(--transition);
+  max-height: 100px;
+}
+
+.chat-input:focus { border-color: var(--primary); }
+
+.chat-send {
+  width: 40px; height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: opacity var(--transition);
+}
+
+.chat-send:disabled { opacity: 0.4; }
+
+/* ── LOGIN SCREEN ────────────────────────────────────────────────── */
+.login-screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  text-align: center;
+  background: var(--bg);
+}
+
+.login-screen__logo   { font-size: 56px; margin-bottom: 16px; }
+.login-screen__title  { font-size: 28px; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
+.login-screen__sub    { font-size: 15px; color: var(--text-secondary); margin-bottom: 40px; line-height: 1.5; }
+
+.btn--google {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  border: 1.5px solid var(--divider);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: var(--elev-1);
+  width: 100%;
+  max-width: 280px;
+  justify-content: center;
+  font-family: inherit;
+  transition: box-shadow var(--transition);
+}
+
+.btn--google:active { box-shadow: none; }
+
+/* ── INPUT / FORM ────────────────────────────────────────────────── */
+.input {
+  width: 100%;
+  border: 1.5px solid var(--divider);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  background: var(--surface);
+  color: var(--text-primary);
+  transition: border-color var(--transition);
+}
+
+.input:focus { border-color: var(--primary); }
+
+.input-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  display: block;
+}
+
+/* ── UTILITIES ───────────────────────────────────────────────────── */
+.mt-8  { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.mt-16 { margin-top: 16px; }
+.flex  { display: flex; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.flex-center  { display: flex; justify-content: center; align-items: center; }
+.gap-8  { gap: 8px; }
+.gap-12 { gap: 12px; }
+.text-sm    { font-size: 13px; }
+.text-bold  { font-weight: 700; }
+.text-muted { color: var(--text-secondary); }
+.text-accent { color: var(--accent); }
+.text-primary-color { color: var(--primary); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+
+/* ---- src/constants.js ---- */
+// constants.js — app-wide constants for Flat Tracker
+
+const APP_NAME    = 'Flat Tracker';
+const APP_VERSION = '0.1.0';
+
+// ── Navigation tabs ──────────────────────────────────────────────────
+const TABS = [
+  { id: 'feed',      label: 'Feed',      icon: '🏠' },
+  { id: 'watchlist', label: 'Watchlist', icon: '📍' },
+  { id: 'hunter',    label: 'Hunter',    icon: '🤖' },
+  { id: 'areas',     label: 'Areas',     icon: '🗺️' },
+];
+
+// ── Hunter AI — system prompt ────────────────────────────────────────
+const HUNTER_SYSTEM_PROMPT = `You are Hunter, an expert AI assistant for apartment hunting in Sweden.
+You help users understand property markets, price trends, area characteristics,
+and street-level insights. You are concise, friendly, and data-driven.
+When discussing prices, always use SEK. When discussing areas, be specific
+and practical. If you don't have specific data, say so clearly and offer
+general guidance instead.`;
+
+// ── Firestore collection names ───────────────────────────────────────
+const COLLECTIONS = {
+  USERS:     'users',
+  WATCHLIST: 'watchlist',
+  LISTINGS:  'listings',
+  AREAS:     'areas',
+};
+
+// ── Placeholder listings (used before real data source is connected) ─
+const MOCK_LISTINGS = [
+  {
+    id: 'mock-1',
+    street: 'Drottninggatan 42',
+    area: 'Centrum',
+    rooms: 2,
+    sqm: 58,
+    price: 2850000,
+    rent: 3200,
+    published: new Date(Date.now() - 1000 * 60 * 12),
+    isNew: true,
+    url: '#',
+  },
+  {
+    id: 'mock-2',
+    street: 'Storgatan 18',
+    area: 'Möllevången',
+    rooms: 3,
+    sqm: 74,
+    price: 3450000,
+    rent: 4100,
+    published: new Date(Date.now() - 1000 * 60 * 45),
+    isNew: true,
+    url: '#',
+  },
+  {
+    id: 'mock-3',
+    street: 'Bergsgatan 7',
+    area: 'Söder',
+    rooms: 1,
+    sqm: 34,
+    price: 1650000,
+    rent: 2400,
+    published: new Date(Date.now() - 1000 * 60 * 120),
+    isNew: false,
+    url: '#',
+  },
+];
+
+// ── Placeholder areas ────────────────────────────────────────────────
+const MOCK_AREAS = [
+  {
+    id: 'area-1',
+    name: 'Centrum',
+    city: 'Malmö',
+    avgPricePerSqm: 48000,
+    popularity: 'High',
+    traits: ['Central', 'Vibrant', 'Walkable'],
+    streets: ['Drottninggatan', 'Södergatan', 'Stortorget'],
+  },
+  {
+    id: 'area-2',
+    name: 'Möllevången',
+    city: 'Malmö',
+    avgPricePerSqm: 38000,
+    popularity: 'High',
+    traits: ['Multicultural', 'Trendy', 'Affordable'],
+    streets: ['Möllevångstorget', 'Nobelvägen', 'Amiralsgatan'],
+  },
+  {
+    id: 'area-3',
+    name: 'Limhamn',
+    city: 'Malmö',
+    avgPricePerSqm: 42000,
+    popularity: 'Medium',
+    traits: ['Family-friendly', 'Seaside', 'Quiet'],
+    streets: ['Limhamnsvägen', 'Strandgatan', 'Hamnvägen'],
+  },
+];
+
+/* ---- src/utils.js ---- */
+// utils.js — pure helper functions for Flat Tracker
+
+// ── Format price in SEK ──────────────────────────────────────────────
+function formatPrice(sek) {
+  if (!sek) return '—';
+  if (sek >= 1000000) return (sek / 1000000).toFixed(1).replace('.', ',') + ' mkr';
+  return sek.toLocaleString('sv-SE') + ' kr';
+}
+
+// ── Format relative time (e.g. "5 min ago") ─────────────────────────
+function timeAgo(date) {
+  const seconds = Math.floor((Date.now() - new Date(date)) / 1000);
+  if (seconds < 60)  return 'Just now';
+  if (seconds < 3600) return Math.floor(seconds / 60) + ' min ago';
+  if (seconds < 86400) return Math.floor(seconds / 3600) + ' h ago';
+  return Math.floor(seconds / 86400) + ' d ago';
+}
+
+// ── Format sqm ───────────────────────────────────────────────────────
+function formatSqm(sqm) {
+  return sqm ? sqm + ' m²' : '—';
+}
+
+// ── Format rent ──────────────────────────────────────────────────────
+function formatRent(kr) {
+  return kr ? kr.toLocaleString('sv-SE') + ' kr/mo' : '—';
+}
+
+// ── Pluralise rooms ──────────────────────────────────────────────────
+function roomLabel(n) {
+  if (!n) return '—';
+  return n === 1 ? '1 room' : n + ' rooms';
+}
+
+// ── Truncate text ────────────────────────────────────────────────────
+function truncate(str, max = 40) {
+  if (!str) return '';
+  return str.length <= max ? str : str.slice(0, max - 1) + '…';
+}
+
+// ── Generate a simple local ID ───────────────────────────────────────
+function localId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+/* ---- src/firebase.js ---- */
+// firebase.js — placeholder
+// Firebase is initialised in the <script type="module"> block in index.html
+// (same pattern as Cross Pass and Game Tracker).
+// All Firebase methods are accessed via window.__firebase throughout the app.
+//
+// Collections used:
+//   users/{uid}                      — user profile + preferences
+//   watchlist/{uid}/streets/{id}     — watched streets per user
+//   listings/{id}                    — apartment listings
+//   areas/{id}                       — area profiles
+
+/* ---- src/components.js ---- */
+// components.js — shared UI components for Flat Tracker
+
+// ── TopBar ───────────────────────────────────────────────────────────
+function TopBar({ title, action }) {
+  return (
+    <div className="top-bar">
+      <span className="top-bar__logo">🏢</span>
+      <span className="top-bar__title">{title || APP_NAME}</span>
+      {action && (
+        <button className="top-bar__action" onClick={action.onClick} title={action.label}>
+          {action.icon}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── BottomNav ────────────────────────────────────────────────────────
+function BottomNav({ active, onChange, badge }) {
+  return (
+    <nav className="bottom-nav">
+      {TABS.map(tab => (
+        <button
+          key={tab.id}
+          className={`nav-item ${active === tab.id ? 'active' : ''}`}
+          onClick={() => onChange(tab.id)}
+        >
+          <span className="nav-item__icon">{tab.icon}</span>
+          <span className="nav-item__label">{tab.label}</span>
+          {badge && badge[tab.id] > 0 && (
+            <span className="nav-item__badge">{badge[tab.id]}</span>
+          )}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+// ── Card ─────────────────────────────────────────────────────────────
+function Card({ children, variant, style, onClick }) {
+  const cls = ['card', variant ? `card--${variant}` : '', onClick ? 'card--clickable' : '']
+    .filter(Boolean).join(' ');
+  return (
+    <div className={cls} style={style} onClick={onClick}>
+      {children}
+    </div>
+  );
+}
+
+// ── EmptyState ───────────────────────────────────────────────────────
+function EmptyState({ icon, title, text, action }) {
+  return (
+    <div className="empty-state">
+      <div className="empty-state__icon">{icon || '📭'}</div>
+      <div className="empty-state__title">{title || 'Nothing here yet'}</div>
+      {text && <div className="empty-state__text">{text}</div>}
+      {action && (
+        <button className="btn btn--primary mt-16" onClick={action.onClick}>
+          {action.label}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Spinner ──────────────────────────────────────────────────────────
+function Spinner() {
+  return <div className="spinner" />;
+}
+
+// ── Chip ─────────────────────────────────────────────────────────────
+function Chip({ label, variant }) {
+  return <span className={`chip chip--${variant || 'primary'}`}>{label}</span>;
+}
+
+// ── ListingCard ──────────────────────────────────────────────────────
+function ListingCard({ listing }) {
+  const { street, area, rooms, sqm, price, rent, published, isNew } = listing;
+  return (
+    <Card variant={isNew ? 'new' : null}>
+      <div className="flex-between">
+        <div>
+          <div className="list-item__title">{street}</div>
+          <div className="list-item__sub">{area}</div>
+        </div>
+        {isNew && <Chip label="NEW" variant="error" />}
+      </div>
+      <div className="flex gap-8 mt-12" style={{ flexWrap: 'wrap' }}>
+        <Chip label={roomLabel(rooms)} variant="primary" />
+        <Chip label={formatSqm(sqm)} variant="primary" />
+        <Chip label={formatPrice(price)} variant="accent" />
+      </div>
+      <div className="flex-between mt-8">
+        <span className="text-sm text-muted">{formatRent(rent)}</span>
+        <span className="text-sm text-muted">{timeAgo(published)}</span>
+      </div>
+    </Card>
+  );
+}
+
+// ── LoginScreen ──────────────────────────────────────────────────────
+function LoginScreen({ onLogin }) {
+  return (
+    <div className="login-screen">
+      <div className="login-screen__logo">🏢</div>
+      <div className="login-screen__title">Flat Tracker</div>
+      <div className="login-screen__sub">
+        Get instant alerts when apartments appear on your watched streets.
+      </div>
+      <button className="btn--google" onClick={onLogin}>
+        <span>G</span>
+        <span>Sign in with Google</span>
+      </button>
+    </div>
+  );
+}
+
+/* ---- src/screens.js ---- */
+// screens.js — four main screens for Flat Tracker
+
+// ── FeedScreen ───────────────────────────────────────────────────────
+function FeedScreen({ user }) {
+  const [listings] = React.useState(MOCK_LISTINGS);
+
+  const newCount = listings.filter(l => l.isNew).length;
+
+  return (
+    <div className="screen">
+      <div className="flex-between" style={{ marginBottom: 16 }}>
+        <div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+            Watching <strong>{MOCK_AREAS.length}</strong> areas
+          </div>
+        </div>
+        {newCount > 0 && <Chip label={`${newCount} new`} variant="error" />}
+      </div>
+
+      <div className="section-header">Latest listings</div>
+      {listings.length === 0
+        ? <EmptyState
+            icon="🏠"
+            title="No listings yet"
+            text="Add streets to your watchlist to start receiving alerts."
+          />
+        : listings.map(l => <ListingCard key={l.id} listing={l} />)
+      }
+    </div>
+  );
+}
+
+// ── WatchlistScreen ──────────────────────────────────────────────────
+function WatchlistScreen({ user }) {
+  const [areas] = React.useState(MOCK_AREAS);
+
+  return (
+    <div className="screen">
+      <div className="section-header">Watched areas & streets</div>
+
+      {areas.length === 0
+        ? <EmptyState
+            icon="📍"
+            title="No areas yet"
+            text="Add an area and select streets to watch."
+            action={{ label: '+ Add area', onClick: () => {} }}
+          />
+        : areas.map(area => (
+            <Card key={area.id}>
+              <div className="flex-between">
+                <div>
+                  <div className="list-item__title">{area.name}</div>
+                  <div className="list-item__sub">{area.city}</div>
+                </div>
+                <Chip label={area.popularity} variant={area.popularity === 'High' ? 'error' : 'accent'} />
+              </div>
+
+              <div className="flex gap-8 mt-12" style={{ flexWrap: 'wrap' }}>
+                {area.streets.map(s => (
+                  <Chip key={s} label={s} variant="primary" />
+                ))}
+              </div>
+            </Card>
+          ))
+      }
+
+      <button className="btn btn--primary btn--full mt-16">
+        + Add area
+      </button>
+    </div>
+  );
+}
+
+// ── HunterScreen ─────────────────────────────────────────────────────
+function HunterScreen({ user }) {
+  const [messages, setMessages] = React.useState([
+    {
+      id: 'welcome',
+      role: 'hunter',
+      text: "Hi! I'm Hunter 🤖 Ask me anything about apartments, price trends, or neighbourhood insights.",
+    }
+  ]);
+  const [input, setInput] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const bottomRef = React.useRef(null);
+
+  React.useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  async function sendMessage() {
+    const text = input.trim();
+    if (!text || loading) return;
+
+    const userMsg = { id: localId(), role: 'user', text };
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setLoading(true);
+
+    try {
+      const history = messages
+        .filter(m => m.id !== 'welcome')
+        .map(m => ({ role: m.role === 'hunter' ? 'assistant' : 'user', content: m.text }));
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: HUNTER_SYSTEM_PROMPT,
+          messages: [...history, { role: 'user', content: text }],
+        }),
+      });
+
+      const data = await res.json();
+      const reply = data.content?.[0]?.text || 'Sorry, I could not get a response.';
+      setMessages(prev => [...prev, { id: localId(), role: 'hunter', text: reply }]);
+    } catch (err) {
+      setMessages(prev => [...prev, {
+        id: localId(), role: 'hunter',
+        text: 'Something went wrong. Please try again.',
+      }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div className="chat-messages">
+        {messages.map(m => (
+          <div key={m.id} className={`chat-bubble chat-bubble--${m.role}`}>
+            {m.text}
+          </div>
+        ))}
+        {loading && (
+          <div className="chat-bubble chat-bubble--hunter text-muted">
+            Thinking…
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      <div className="chat-input-row">
+        <textarea
+          className="chat-input"
+          rows={1}
+          placeholder="Ask Hunter anything…"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={handleKey}
+        />
+        <button className="chat-send" onClick={sendMessage} disabled={!input.trim() || loading}>
+          ➤
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── AreasScreen ──────────────────────────────────────────────────────
+function AreasScreen({ user }) {
+  const [areas] = React.useState(MOCK_AREAS);
+  const [selected, setSelected] = React.useState(null);
+
+  if (selected) {
+    const area = areas.find(a => a.id === selected);
+    return (
+      <div className="screen">
+        <button className="btn btn--text" style={{ marginLeft: -8 }} onClick={() => setSelected(null)}>
+          ← Back
+        </button>
+
+        <div style={{ marginTop: 8 }}>
+          <div style={{ fontSize: 24, fontWeight: 700 }}>{area.name}</div>
+          <div className="text-muted">{area.city}</div>
+        </div>
+
+        <Card style={{ marginTop: 16 }}>
+          <div className="section-header" style={{ marginTop: 0 }}>Overview</div>
+          <div className="list-item">
+            <div className="list-item__content">
+              <div className="list-item__sub">Avg price / m²</div>
+              <div className="list-item__title">{formatPrice(area.avgPricePerSqm)}</div>
+            </div>
+          </div>
+          <div className="list-item">
+            <div className="list-item__content">
+              <div className="list-item__sub">Popularity</div>
+              <div className="list-item__title">{area.popularity}</div>
+            </div>
+          </div>
+        </Card>
+
+        <div className="section-header">Traits</div>
+        <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
+          {area.traits.map(t => <Chip key={t} label={t} variant="success" />)}
+        </div>
+
+        <div className="section-header">Streets</div>
+        <Card>
+          {area.streets.map(s => (
+            <div key={s} className="list-item">
+              <div className="list-item__icon">🛣️</div>
+              <div className="list-item__content">
+                <div className="list-item__title">{s}</div>
+              </div>
+            </div>
+          ))}
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="screen">
+      <div className="section-header">Areas</div>
+      {areas.map(area => (
+        <Card key={area.id} onClick={() => setSelected(area.id)}>
+          <div className="flex-between">
+            <div>
+              <div className="list-item__title">{area.name}</div>
+              <div className="list-item__sub">{area.city} · {area.streets.length} streets</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div className="text-sm text-bold">{formatPrice(area.avgPricePerSqm)}<span className="text-muted">/m²</span></div>
+              <Chip label={area.popularity} variant={area.popularity === 'High' ? 'error' : 'accent'} />
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+/* ---- src/app.js ---- */
+// app.js — root app component for Flat Tracker
+
+const { useState, useEffect } = React;
+
+function App() {
+  const [user, setUser]     = useState(undefined);  // undefined = loading
+  const [tab, setTab]       = useState('feed');
+  const [newCount, setNewCount] = useState(2);       // mock badge count
+
+  // ── Auth listener ──────────────────────────────────────────────────
+  useEffect(() => {
+    const { auth, onAuthStateChanged } = window.__firebase;
+    const unsub = onAuthStateChanged(auth, u => setUser(u || null));
+    return unsub;
+  }, []);
+
+  // ── Google sign-in ─────────────────────────────────────────────────
+  function handleLogin() {
+    const { auth, GoogleAuthProvider, signInWithPopup } = window.__firebase;
+    const provider = new GoogleAuthProvider();
+    signInWithPopup(auth, provider).catch(err => console.error('Login error', err));
+  }
+
+  // ── Sign out ───────────────────────────────────────────────────────
+  function handleSignOut() {
+    const { auth, signOut } = window.__firebase;
+    signOut(auth);
+  }
+
+  // ── Loading splash ─────────────────────────────────────────────────
+  if (user === undefined) {
+    return (
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Spinner />
+      </div>
+    );
+  }
+
+  // ── Not signed in ──────────────────────────────────────────────────
+  if (user === null) {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
+
+  // ── Signed in ──────────────────────────────────────────────────────
+  const screenTitles = {
+    feed:      'Feed',
+    watchlist: 'Watchlist',
+    hunter:    'Hunter',
+    areas:     'Areas',
+  };
+
+  function renderScreen() {
+    switch (tab) {
+      case 'feed':      return <FeedScreen user={user} />;
+      case 'watchlist': return <WatchlistScreen user={user} />;
+      case 'hunter':    return <HunterScreen user={user} />;
+      case 'areas':     return <AreasScreen user={user} />;
+      default:          return <FeedScreen user={user} />;
+    }
+  }
+
+  const badge = { feed: newCount };
+
+  return (
+    <>
+      <TopBar
+        title={screenTitles[tab]}
+        action={{ icon: '👤', label: 'Sign out', onClick: handleSignOut }}
+      />
+      {renderScreen()}
+      <BottomNav active={tab} onChange={setTab} badge={badge} />
+    </>
+  );
+}
+
+// ── Mount ────────────────────────────────────────────────────────────
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
