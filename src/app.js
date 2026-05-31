@@ -64,10 +64,12 @@ function App() {
     );
   }
 
-  if (user === null) return <LoginScreen onLogin={handleLogin} />;
+  if (user === null) {
+    return <div style={{ height:'100%', width:'100%' }}><LoginScreen onLogin={handleLogin} /></div>;
+  }
 
   if (!householdId) {
-    return <HouseholdSetupScreen user={user} onComplete={handleHouseholdComplete} />;
+    return <div style={{ height:'100%', width:'100%' }}><HouseholdSetupScreen user={user} onComplete={handleHouseholdComplete} /></div>;
   }
 
   // ── Rendrera skärm ────────────────────────────────────────────────

@@ -656,10 +656,15 @@ html, body {
 }
 
 @media (min-width: 768px) {
-  .settings-overlay { align-items: center; justify-content: flex-end; padding-right: 24px; }
+  .settings-overlay {
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding-left: calc(var(--sidebar-w) + 12px);
+    padding-bottom: 16px;
+  }
   .settings-sheet {
     border-radius: var(--radius-lg);
-    max-width: 380px;
+    max-width: 360px;
     margin: 0;
     animation: fadeIn 180ms ease;
   }
