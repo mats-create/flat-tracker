@@ -3,10 +3,12 @@
 const { useState, useEffect } = React;
 
 function App() {
-  const [user, setUser]             = useState(undefined);  // undefined = laddar
-  const [householdId, setHouseholdId] = useState(undefined); // undefined = laddar
-  const [tab, setTab]               = useState('feed');
-  const [newCount]                  = useState(2); // mock badge-räknare
+  const [user, setUser]               = useState(undefined);
+  const [householdId, setHouseholdId] = useState(undefined);
+  const [household, setHousehold]     = useState(null);
+  const [tab, setTab]                 = useState('feed');
+  const [showSettings, setShowSettings] = useState(false);
+  const [newCount]                    = useState(2);
 
   // ── Auth-lyssnare ──────────────────────────────────────────────────
   useEffect(() => {
@@ -15,27 +17,38 @@ function App() {
       if (!u) {
         setUser(null);
         setHouseholdId(null);
+        setHousehold(null);
         return;
       }
       setUser(u);
-      // Kolla om användaren redan har ett hushåll
       const hid = await getHouseholdId(u.uid);
       setHouseholdId(hid || null);
     });
     return unsub;
   }, []);
 
+  // ── Hämta hushållsdata när vi har ett ID ───────────────────────────
+  useEffect(() => {
+    if (!householdId) return;
+    const { db, doc, onSnapshot } = window.__firebase;
+    const unsub = onSnapshot(doc(db, COLLECTIONS.HOUSEHOLDS, householdId), snap => {
+      if (snap.exists()) setHousehold({ id: snap.id, ...snap.data() });
+    });
+    return unsub;
+  }, [householdId]);
+
   // ── Google-inloggning ──────────────────────────────────────────────
   function handleLogin() {
     const { auth, GoogleAuthProvider, signInWithPopup } = window.__firebase;
-    const provider = new GoogleAuthProvider();
-    signInWithPopup(auth, provider).catch(err => console.error('Inloggningsfel', err));
+    signInWithPopup(auth, new GoogleAuthProvider())
+      .catch(err => console.error('Inloggningsfel', err));
   }
 
   // ── Logga ut ───────────────────────────────────────────────────────
   function handleSignOut() {
     const { auth, signOut } = window.__firebase;
     signOut(auth);
+    setShowSettings(false);
   }
 
   // ── Hushåll klart ─────────────────────────────────────────────────
@@ -54,16 +67,14 @@ function App() {
   }
 
   // ── Ej inloggad ───────────────────────────────────────────────────
-  if (user === null) {
-    return <LoginScreen onLogin={handleLogin} />;
-  }
+  if (user === null) return <LoginScreen onLogin={handleLogin} />;
 
   // ── Inloggad men saknar hushåll ───────────────────────────────────
   if (!householdId) {
     return <HouseholdSetupScreen user={user} onComplete={handleHouseholdComplete} />;
   }
 
-  // ── Inloggad med hushåll — visa appen ─────────────────────────────
+  // ── Inloggad med hushåll ──────────────────────────────────────────
   const skärmTitlar = {
     feed:      'Flöde',
     watchlist: 'Bevakning',
@@ -82,16 +93,23 @@ function App() {
     }
   }
 
-  const badge = { feed: newCount };
-
   return (
     <>
       <TopBar
         title={skärmTitlar[tab]}
-        action={{ icon: '👤', label: 'Logga ut', onClick: handleSignOut }}
+        onMenuOpen={() => setShowSettings(true)}
       />
       {visaSkärm()}
-      <BottomNav active={tab} onChange={setTab} badge={badge} />
+      <BottomNav active={tab} onChange={setTab} badge={{ feed: newCount }} />
+
+      {showSettings && (
+        <SettingsMenu
+          user={user}
+          household={household}
+          onClose={() => setShowSettings(false)}
+          onSignOut={handleSignOut}
+        />
+      )}
     </>
   );
 }
