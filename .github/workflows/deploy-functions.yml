@@ -4,7 +4,6 @@ on:
   push:
     paths:
       - 'functions/**'
-      - 'firestore.rules'
       - '.github/workflows/deploy-functions.yml'
 
 jobs:
