@@ -6,10 +6,11 @@ function App() {
   const [user, setUser]                 = useState(undefined);
   const [householdId, setHouseholdId]   = useState(undefined);
   const [household, setHousehold]       = useState(null);
+  const [profiles, setProfiles]         = useState([]);
   const [tab, setTab]                   = useState('feed');
   const [showSettings, setShowSettings] = useState(false);
   const [showIo, setShowIo]             = useState(false);
-  const [newCount]                      = useState(2);
+  const [newCount]                      = useState(0);
 
   // ── Auth-lyssnare ──────────────────────────────────────────────────
   useEffect(() => {
@@ -32,6 +33,20 @@ function App() {
     const { db, doc, onSnapshot } = window.__firebase;
     const unsub = onSnapshot(doc(db, COLLECTIONS.HOUSEHOLDS, householdId), snap => {
       if (snap.exists()) setHousehold({ id: snap.id, ...snap.data() });
+    });
+    return unsub;
+  }, [householdId]);
+
+  // ── Hämta bevakningsprofiler ───────────────────────────────────────
+  useEffect(() => {
+    if (!householdId) return;
+    const { db, collection, query, where, onSnapshot } = window.__firebase;
+    const q = query(
+      collection(db, COLLECTIONS.HOUSEHOLDS, householdId, 'profiles'),
+      where('active', '==', true)
+    );
+    const unsub = onSnapshot(q, snap => {
+      setProfiles(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
     return unsub;
   }, [householdId]);
@@ -81,7 +96,7 @@ function App() {
   };
 
   function visaSkärm() {
-    const props = { user, householdId, household };
+    const props = { user, householdId, household, profiles };
     switch (tab) {
       case 'feed':      return <FeedScreen {...props} />;
       case 'watchlist': return <WatchlistScreen {...props} />;

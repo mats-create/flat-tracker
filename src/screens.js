@@ -152,8 +152,6 @@ function FeedScreen({ user, householdId, household, profiles }) {
       orderBy('createdAt', 'desc'),
       limit(100)
     );
-
-    const unsub = onSnapshot(q,
       snap => {
         setListings(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         setLoading(false);
