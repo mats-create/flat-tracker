@@ -1,34 +1,35 @@
 const functions = require('firebase-functions');
+const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const { google } = require('googleapis');
 
 admin.initializeApp();
 const db = admin.firestore();
 
+const ANTHROPIC_KEY = defineSecret('ANTHROPIC_KEY');
+const GMAIL_CREDENTIALS = defineSecret('GMAIL_CREDENTIALS');
+
 const GMAIL_LABEL = 'Flat Tracker';
 const PUBSUB_TOPIC = 'projects/flattracker-mph/topics/gmail-push';
+const GMAIL_USER = 'mats@hultgrensaksi.com';
 
-// ── Hjälp: Gmail-klient ──────────────────────────────────────────────
-function getGmailClient() {
-  const credentials = JSON.parse(process.env.GMAIL_CREDENTIALS);
-  const auth = new google.auth.GoogleAuth({
-    credentials,
+function getGmailClient(credentialsJson) {
+  const credentials = JSON.parse(credentialsJson);
+  const auth = new google.auth.JWT({
+    email: credentials.client_email,
+    key: credentials.private_key,
     scopes: ['https://www.googleapis.com/auth/gmail.modify'],
-    clientOptions: {
-      subject: process.env.GMAIL_USER,
-    },
+    subject: GMAIL_USER,
   });
   return google.gmail({ version: 'v1', auth });
 }
 
-// ── Hjälp: Hämta label-ID ────────────────────────────────────────────
 async function getFlatTrackerLabelId(gmail) {
   const res = await gmail.users.labels.list({ userId: 'me' });
   const label = res.data.labels.find(l => l.name === GMAIL_LABEL);
   return label ? label.id : null;
 }
 
-// ── Hjälp: Läs mailtext ─────────────────────────────────────────────
 function extractPlainText(payload) {
   if (!payload) return '';
   if (payload.mimeType === 'text/plain' && payload.body?.data) {
@@ -43,8 +44,7 @@ function extractPlainText(payload) {
   return '';
 }
 
-// ── Hjälp: Extrahera annonser via Claude ────────────────────────────
-async function extractListingsWithClaude(mailText) {
+async function extractListingsWithClaude(mailText, anthropicKey) {
   const prompt = `Analysera det här bevakningsmaiet från Hemnet eller Booli och extrahera alla lägenhetsannonser.
 
 Returnera ENBART ett JSON-objekt, ingen annan text:
@@ -78,7 +78,7 @@ ${mailText.substring(0, 8000)}`;
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_KEY,
+      'x-api-key': anthropicKey,
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
@@ -96,7 +96,6 @@ ${mailText.substring(0, 8000)}`;
   return JSON.parse(clean);
 }
 
-// ── Hjälp: Matcha mot profiler ───────────────────────────────────────
 function matchesProfile(listing, profile) {
   if (profile.priceMin  && listing.price < Number(profile.priceMin))  return false;
   if (profile.priceMax  && listing.price > Number(profile.priceMax))  return false;
@@ -111,30 +110,24 @@ function matchesProfile(listing, profile) {
   return true;
 }
 
-// ── Hjälp: Spara i Firestore ─────────────────────────────────────────
 async function saveListings(listings) {
   const householdsSnap = await db.collection('households').get();
   let savedCount = 0;
-
   for (const listing of listings) {
     if (!listing.externalId || !listing.source) continue;
     const docId = `${listing.source}_${listing.externalId}`;
     const ref = db.collection('listings').doc(docId);
     const existing = await ref.get();
     if (existing.exists) continue;
-
     const matchedHouseholds = [];
     for (const householdDoc of householdsSnap.docs) {
       const profilesSnap = await db
         .collection('households').doc(householdDoc.id)
-        .collection('profiles')
-        .where('active', '==', true)
-        .get();
+        .collection('profiles').where('active', '==', true).get();
       const profiles = profilesSnap.docs.map(d => d.data());
       const hasMatch = profiles.length === 0 || profiles.some(p => matchesProfile(listing, p));
       if (hasMatch) matchedHouseholds.push(householdDoc.id);
     }
-
     await ref.set({
       ...listing,
       matchedHouseholds,
@@ -146,32 +139,28 @@ async function saveListings(listings) {
   return savedCount;
 }
 
-// ── Cloud Function: Ta emot Gmail push ──────────────────────────────
 exports.gmailPush = functions
-  .runWith({ timeoutSeconds: 120, memory: '256MB' })
+  .runWith({ timeoutSeconds: 120, memory: '256MB', secrets: ['ANTHROPIC_KEY', 'GMAIL_CREDENTIALS'] })
   .pubsub.topic('gmail-push')
   .onPublish(async () => {
-    console.log('Gmail push-notis mottagen.');
-    const gmail = getGmailClient();
+    const gmail = getGmailClient(GMAIL_CREDENTIALS.value());
     const labelId = await getFlatTrackerLabelId(gmail);
     if (!labelId) { console.error('Label saknas.'); return; }
-
     const listRes = await gmail.users.messages.list({
       userId: 'me', labelIds: [labelId], q: 'is:unread', maxResults: 10,
     });
     const messages = listRes.data.messages || [];
     if (messages.length === 0) { console.log('Inga olästa mail.'); return; }
-
     for (const msg of messages) {
       try {
         const mailRes = await gmail.users.messages.get({ userId: 'me', id: msg.id, format: 'full' });
         const mailText = extractPlainText(mailRes.data.payload);
         if (!mailText || mailText.length < 50) continue;
-        const result = await extractListingsWithClaude(mailText);
+        const result = await extractListingsWithClaude(mailText, ANTHROPIC_KEY.value());
         const listings = result.listings || [];
         if (listings.length > 0) {
           const saved = await saveListings(listings);
-          console.log(`${saved} nya annonser sparade från mail ${msg.id}.`);
+          console.log(`${saved} nya annonser sparade.`);
         }
         await gmail.users.messages.modify({
           userId: 'me', id: msg.id,
@@ -183,28 +172,26 @@ exports.gmailPush = functions
     }
   });
 
-// ── Cloud Function: Förnya Gmail push var 6:e dag ────────────────────
 exports.renewGmailPush = functions
-  .runWith({ timeoutSeconds: 60, memory: '128MB' })
+  .runWith({ timeoutSeconds: 60, memory: '128MB', secrets: ['GMAIL_CREDENTIALS'] })
   .pubsub.schedule('every 144 hours')
   .onRun(async () => {
-    const gmail = getGmailClient();
+    const gmail = getGmailClient(GMAIL_CREDENTIALS.value());
     const labelId = await getFlatTrackerLabelId(gmail);
     if (!labelId) return null;
     await gmail.users.watch({
       userId: 'me',
       requestBody: { labelIds: [labelId], topicName: PUBSUB_TOPIC },
     });
-    console.log('Gmail push-prenumeration förnyad.');
+    console.log('Gmail push förnyad.');
     return null;
   });
 
-// ── Cloud Function: Aktivera Gmail push (körs en gång) ───────────────
 exports.setupGmailPush = functions
-  .runWith({ timeoutSeconds: 60, memory: '128MB' })
+  .runWith({ timeoutSeconds: 60, memory: '128MB', secrets: ['GMAIL_CREDENTIALS'] })
   .https.onRequest(async (req, res) => {
     try {
-      const gmail = getGmailClient();
+      const gmail = getGmailClient(GMAIL_CREDENTIALS.value());
       const labelId = await getFlatTrackerLabelId(gmail);
       if (!labelId) { res.status(400).send('Gmail-label saknas.'); return; }
       await gmail.users.watch({
