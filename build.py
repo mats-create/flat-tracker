@@ -29,7 +29,7 @@ HTML_HEAD = """<!DOCTYPE html>
   import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
     from 'https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js';
   import { getFirestore, collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc,
-    getDocs, onSnapshot, query, orderBy, where, serverTimestamp }
+    getDocs, onSnapshot, query, orderBy, where, limit, serverTimestamp }
     from 'https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js';
 
   const firebaseConfig = {
@@ -48,7 +48,7 @@ HTML_HEAD = """<!DOCTYPE html>
   window.__firebase = {
     auth, db, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
     collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc,
-    getDocs, onSnapshot, query, orderBy, where, serverTimestamp
+    getDocs, onSnapshot, query, orderBy, where, limit, serverTimestamp
   };
 </script>
 
