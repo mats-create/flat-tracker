@@ -136,11 +136,15 @@ function LoginScreen({ onLogin }) {
 
 // ── SettingsMenu ─────────────────────────────────────────────────────
 function SettingsMenu({ user, household, onClose, onSignOut }) {
-  const [copied, setCopied]       = React.useState(false);
-  const [apiKey, setApiKey]       = React.useState(household?.anthropicKey || '');
-  const [showKey, setShowKey]     = React.useState(false);
-  const [keySaved, setKeySaved]   = React.useState(false);
-  const [keyError, setKeyError]   = React.useState('');
+  const [copied, setCopied]           = React.useState(false);
+  const [apiKey, setApiKey]           = React.useState(household?.anthropicKey || '');
+  const [showKey, setShowKey]         = React.useState(false);
+  const [keySaved, setKeySaved]       = React.useState(false);
+  const [keyError, setKeyError]       = React.useState('');
+  const [apifyKey, setApifyKey]       = React.useState(household?.apifyKey || '');
+  const [showApifyKey, setShowApifyKey] = React.useState(false);
+  const [apifyKeySaved, setApifyKeySaved] = React.useState(false);
+  const [apifyKeyError, setApifyKeyError] = React.useState('');
 
   const isOwner = household?.createdBy === user?.uid;
 
@@ -165,6 +169,21 @@ function SettingsMenu({ user, household, onClose, onSignOut }) {
       setTimeout(() => setKeySaved(false), 2500);
     } catch (e) {
       setKeyError('Kunde inte spara. Försök igen.');
+    }
+  }
+
+  async function saveApifyKey() {
+    if (!apifyKey.trim().startsWith('apify_api_')) {
+      setApifyKeyError('Nyckeln ska börja med apify_api_');
+      return;
+    }
+    setApifyKeyError('');
+    try {
+      await saveHouseholdApifyKey(household.id, apifyKey.trim());
+      setApifyKeySaved(true);
+      setTimeout(() => setApifyKeySaved(false), 2500);
+    } catch (e) {
+      setApifyKeyError('Kunde inte spara. Försök igen.');
     }
   }
 
@@ -287,6 +306,47 @@ function SettingsMenu({ user, household, onClose, onSignOut }) {
                   ? '✓ Hunter är aktiv — API-nyckel konfigurerad av hushållsägaren.'
                   : '⚠️ Hunter är inte aktiv ännu. Be hushållsägaren lägga till en API-nyckel i inställningarna.'}
               </div>
+            </Card>
+          </>
+        )}
+
+        {/* Apify-nyckel — bara synlig för ägaren */}
+        {isOwner && (
+          <>
+            <div className="section-header">Annonshämtning</div>
+            <Card style={{ marginBottom: 16 }}>
+              <div className="list-item__sub" style={{ marginBottom: 6 }}>
+                Apify API-nyckel
+              </div>
+              <div className="text-sm text-muted" style={{ marginBottom: 10, lineHeight: 1.5 }}>
+                Hämta din nyckel på console.apify.com under Integrations. Används för att hämta annonser från Hemnet och Booli.
+              </div>
+              <div className="flex gap-8" style={{ alignItems: 'center' }}>
+                <input
+                  className="input"
+                  type={showApifyKey ? 'text' : 'password'}
+                  placeholder="apify_api_..."
+                  value={apifyKey}
+                  onChange={e => setApifyKey(e.target.value)}
+                  style={{ fontFamily: 'monospace', fontSize: 13 }}
+                />
+                <button className="btn btn--text" style={{ flexShrink: 0, padding: '8px' }}
+                  onClick={() => setShowApifyKey(v => !v)}>
+                  {showApifyKey ? '🙈' : '👁️'}
+                </button>
+              </div>
+              {apifyKeyError && (
+                <div className="text-sm" style={{ color: 'var(--error)', marginTop: 6 }}>{apifyKeyError}</div>
+              )}
+              <button className="btn btn--primary btn--full" style={{ marginTop: 10 }}
+                onClick={saveApifyKey} disabled={!apifyKey.trim()}>
+                {apifyKeySaved ? '✓ Sparad!' : 'Spara nyckel'}
+              </button>
+              {household?.apifyKey && (
+                <div className="text-sm" style={{ color: 'var(--success)', marginTop: 8, textAlign: 'center' }}>
+                  ✓ Nyckel är aktiv
+                </div>
+              )}
             </Card>
           </>
         )}
