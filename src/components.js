@@ -94,24 +94,45 @@ function Chip({ label, variant }) {
 
 // ── ListingCard ──────────────────────────────────────────────────────
 function ListingCard({ listing }) {
-  const { street, area, rooms, sqm, price, rent, published, isNew } = listing;
+  const {
+    street, area, city, rooms, sqm, price,
+    monthlyFee, rent, createdAt, publishedAt, published,
+    isNew, url, source,
+  } = listing;
+
+  const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+  const isNewListing = isNew || (createdAt && createdAt > oneDayAgo);
+  const fee = monthlyFee || rent || 0;
+  const timestamp = createdAt || publishedAt || published;
+
   return (
-    <Card variant={isNew ? 'new' : null}>
+    <Card variant={isNewListing ? 'new' : null}>
       <div className="flex-between">
-        <div>
-          <div className="list-item__title">{street}</div>
-          <div className="list-item__sub">{area}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="list-item__title">{street || '—'}</div>
+          <div className="list-item__sub">{[area, city].filter(Boolean).join(', ') || '—'}</div>
         </div>
-        {isNew && <Chip label="NY" variant="error" />}
+        <div className="flex gap-8" style={{ alignItems: 'center', flexShrink: 0 }}>
+          {isNewListing && <Chip label="NY" variant="error" />}
+          {source && <Chip label={source} variant="primary" />}
+        </div>
       </div>
       <div className="flex gap-8 mt-12" style={{ flexWrap: 'wrap' }}>
-        <Chip label={roomLabel(rooms)} variant="primary" />
-        <Chip label={formatSqm(sqm)} variant="primary" />
-        <Chip label={formatPrice(price)} variant="accent" />
+        {rooms > 0 && <Chip label={roomLabel(rooms)} variant="primary" />}
+        {sqm > 0 && <Chip label={formatSqm(sqm)} variant="primary" />}
+        {price > 0 && <Chip label={formatPrice(price)} variant="accent" />}
       </div>
       <div className="flex-between mt-8">
-        <span className="text-sm text-muted">{formatRent(rent)}</span>
-        <span className="text-sm text-muted">{timeAgo(published)}</span>
+        <span className="text-sm text-muted">{fee > 0 ? formatRent(fee) : ''}</span>
+        <div className="flex gap-8" style={{ alignItems: 'center' }}>
+          {timestamp && <span className="text-sm text-muted">{timeAgo(timestamp)}</span>}
+          {url && (
+            <a href={url} target="_blank" rel="noopener noreferrer"
+              className="text-sm" style={{ color: 'var(--primary)' }}>
+              Visa →
+            </a>
+          )}
+        </div>
       </div>
     </Card>
   );
