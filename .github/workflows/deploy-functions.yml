@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'functions/**'
+      - 'firestore.rules'
       - '.github/workflows/deploy-functions.yml'
 
 jobs:
@@ -24,13 +25,11 @@ jobs:
         run: npm install
         working-directory: functions
 
-      - name: Autentisera mot Firebase
+      - name: Autentisera och deploya
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
         run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > service-account.json
+          echo "$FIREBASE_SERVICE_ACCOUNT" > service-account.json
           export GOOGLE_APPLICATION_CREDENTIALS=service-account.json
-          firebase use ${{ secrets.FIREBASE_PROJECT_ID }}
-
-      - name: Deploya funktioner och regler
-        run: |
-          export GOOGLE_APPLICATION_CREDENTIALS=service-account.json
-          firebase deploy --only functions,firestore:rules --project ${{ secrets.FIREBASE_PROJECT_ID }}
+          firebase deploy --only functions,firestore:rules --project "$FIREBASE_PROJECT_ID"
