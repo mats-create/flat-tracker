@@ -1,0 +1,18 @@
+{
+  "name": "flat-tracker-functions",
+  "version": "1.0.0",
+  "description": "Firebase Cloud Functions för Flat Tracker",
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^4.9.0",
+    "axios": "^1.7.0"
+  },
+  "devDependencies": {
+    "firebase-functions-test": "^3.1.0"
+  },
+  "private": true
+}
