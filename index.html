@@ -436,7 +436,6 @@ html, body {
   }
 
   .bottom-nav { display: none; }
-  .io-fab     { display: none; }
 
   .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .card-grid .card { margin-bottom: 0; }
@@ -919,7 +918,16 @@ html, body {
 .io-fab--active { background: var(--primary-dark); }
 
 @media (min-width: 768px) {
-  .io-fab { display: none; }
+  .io-fab {
+    display: flex;
+    bottom: 24px;
+    right: 24px;
+    transition: right 220ms ease, transform var(--transition), background var(--transition);
+  }
+  /* När Io-panelen är öppen, förskjut FAB åt vänster om panelen */
+  .io-open .io-fab {
+    right: calc(360px + 16px);
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -2763,7 +2771,7 @@ function App() {
   const badge = { feed: newCount };
 
   return (
-    <>
+    <div className={showIo ? 'io-open' : ''} style={{ display: 'contents' }}>
       {/* ── Desktop sidebar ────────────────────────────────────────── */}
       <aside className={`sidebar ${sidebarCollapsed ? 'sidebar--collapsed' : ''}`}>
         <div className="sidebar__brand">
@@ -2794,17 +2802,7 @@ function App() {
             </button>
           ))}
 
-          {/* Io i sidebaren */}
-          <button
-            className={`sidebar__item ${showIo ? 'active' : ''}`}
-            onClick={() => setShowIo(v => !v)}
-            title="Io — AI"
-          >
-            <span className="sidebar__item-icon">
-              <span style={{ fontWeight: 700, fontSize: 14 }}>Io</span>
-            </span>
-            <span className="sidebar__item-label">Io — AI</span>
-          </button>
+
         </nav>
 
         <div className="sidebar__footer">
@@ -2851,7 +2849,7 @@ function App() {
           onSignOut={handleSignOut}
         />
       )}
-    </>
+    </div>
   );
 }
 
