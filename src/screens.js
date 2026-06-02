@@ -1,43 +1,21 @@
 // screens.js — huvudskärmar för Flat Tracker
 
-// ── Gmail-import: extrahera annonsdata via Claude API ────────────────
-async function importFromGmail(anthropicKey, gmailLabel) {
-  const label = gmailLabel || 'Flat Tracker';
-
-  const prompt = `Du är en dataextraktor för lägenhetsannonser. Din uppgift är att läsa bevakningsmail från Hemnet och Booli i Gmail-labeln "${label}" och extrahera strukturerad annonsdata.
-
-Instruktioner:
-1. Sök efter olästa mail i Gmail-labeln "${label}" från avsändare som innehåller hemnet.se eller booli.se
-2. För varje mail, extrahera alla lägenhetsannonser som nämns
-3. Returnera ENBART ett JSON-objekt i detta exakta format, ingen annan text:
-
-{
-  "listings": [
-    {
-      "source": "hemnet" eller "booli",
-      "externalId": "annonsens unika ID från URL:en",
-      "url": "direktlänk till annonsen",
-      "title": "adress eller rubrik",
-      "street": "gatuadress",
-      "area": "stadsdel eller område",
-      "city": "stad",
-      "price": pristal i kronor (bara siffror),
-      "sqm": antal kvadratmeter (bara siffror),
-      "rooms": antal rum (bara siffror),
-      "monthlyFee": månadsavgift i kronor (bara siffror, 0 om okänt),
-      "hasBalcony": true eller false,
-      "hasElevator": true eller false,
-      "isNewConstruction": true eller false,
-      "imageUrl": "URL till bild om tillgänglig",
-      "publishedAt": "ISO-datum om känt"
-    }
-  ],
-  "emailsRead": antal mail som lästes,
-  "message": "kort beskrivning av vad som hittades"
-}
-
-Om inga olästa mail finns i labeln, returnera: {"listings": [], "emailsRead": 0, "message": "Inga nya bevakningsmail hittades i labeln ${label}."}
-Om labeln inte finns, returnera: {"listings": [], "emailsRead": 0, "message": "Gmail-labeln '${label}' hittades inte. Skapa den och flytta dina bevakningsmail dit."}`;
+// ── Hjälpfunktion: Io-analys av en annons ───────────────────────────
+async function fetchIoAnalysis(listing, anthropicKey) {
+  const prompt = 'Analysera den här bostadsannonsen kort och koncist (max 4-5 meningar). ' +
+    'Ta upp: läge och område, pris per kvm jämfört med Malmö-snittet, vad som sticker ut (positivt/negativt), ' +
+    'och en kortfattad rekommendation.\n\n' +
+    'Annons:\n' +
+    'Adress: ' + (listing.street || '') + '\n' +
+    'Område: ' + (listing.area || '') + ', ' + (listing.city || '') + '\n' +
+    'Pris: ' + (listing.price ? formatPrice(listing.price) : 'okänt') + '\n' +
+    'Storlek: ' + (listing.sqm ? formatSqm(listing.sqm) : 'okänt') + '\n' +
+    'Rum: ' + (listing.rooms ? roomLabel(listing.rooms) : 'okänt') + '\n' +
+    'Månadsavgift: ' + (listing.monthlyFee ? formatRent(listing.monthlyFee) : 'okänd') + '\n' +
+    'Balkong: ' + (listing.hasBalcony ? 'Ja' : 'Nej') + '\n' +
+    'Hiss: ' + (listing.hasElevator ? 'Ja' : 'Nej') + '\n' +
+    'Mäklare: ' + (listing.agencyName || 'okänd') + '\n' +
+    'Källa: ' + (listing.source || '');
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -49,162 +27,274 @@ Om labeln inte finns, returnera: {"listings": [], "emailsRead": 0, "message": "G
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 4000,
-      mcp_servers: [
-        {
-          type: 'url',
-          url: 'https://gmailmcp.googleapis.com/mcp/v1',
-          name: 'gmail',
-        }
-      ],
-      system: 'Du är en dataextraktor. Returnera ALLTID och ENBART giltig JSON, aldrig förklaringar eller markdown.',
+      max_tokens: 300,
+      system: IO_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `API-fel ${res.status}`);
-  }
-
+  if (!res.ok) throw new Error('API-fel ' + res.status);
   const data = await res.json();
-  const text = data.content?.find(b => b.type === 'text')?.text || '';
-
-  // Rensa eventuell markdown-formattering
-  const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-  try {
-    return JSON.parse(clean);
-  } catch (e) {
-    throw new Error('Claude returnerade ogiltig JSON. Försök igen.');
-  }
+  return (data.content && data.content.find(b => b.type === 'text') || {}).text || '';
 }
 
-// ── Spara annonser till Firestore ────────────────────────────────────
-async function saveListingsToFirestore(listings, householdId, profiles) {
-  const { db, doc, getDoc, setDoc } = window.__firebase;
+// ── ListingCard med bevakning och Io-analys ──────────────────────────
+function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatch }) {
+  const [expanded, setExpanded]     = React.useState(false);
+  const [analysis, setAnalysis]     = React.useState(null);
+  const [analyzing, setAnalyzing]   = React.useState(false);
+  const [analysisErr, setAnalysisErr] = React.useState(null);
 
-  function matchesProfile(listing, profile) {
-    if (profile.priceMin  && listing.price < Number(profile.priceMin))  return false;
-    if (profile.priceMax  && listing.price > Number(profile.priceMax))  return false;
-    if (profile.sqmMin    && listing.sqm   < Number(profile.sqmMin))    return false;
-    if (profile.sqmMax    && listing.sqm   > Number(profile.sqmMax))    return false;
-    if (profile.roomsMin  && listing.rooms < Number(profile.roomsMin))  return false;
-    if (profile.roomsMax  && listing.rooms > Number(profile.roomsMax))  return false;
-    if (profile.noGroundFloor    && listing.isGroundFloor)  return false;
-    if (profile.balconyRequired  && !listing.hasBalcony)    return false;
-    if (profile.elevatorRequired && !listing.hasElevator)   return false;
-    if (profile.newConstruction  && !listing.isNewConstruction) return false;
-    return true;
+  const {
+    street, area, city, rooms, sqm, price,
+    monthlyFee, createdAt, url, source,
+    agentName, agencyName, agentEmail,
+    showings,
+  } = listing;
+
+  const oneDayAgo    = Date.now() - 24 * 60 * 60 * 1000;
+  const isNew        = (createdAt || 0) > oneDayAgo;
+  const fee          = monthlyFee || 0;
+  const pricePerSqm  = price && sqm ? Math.round(price / sqm) : null;
+
+  async function handleToggleWatch() {
+    onToggleWatch(listing.id, !watched);
+    if (!watched && !analysis) {
+      await runAnalysis();
+    }
   }
 
-  const activeProfiles = (profiles || []).filter(p => p.active);
-  let savedCount = 0;
-
-  for (const listing of listings) {
-    if (!listing.externalId || !listing.source) continue;
-    const docId = `${listing.source}_${listing.externalId}`;
-    const ref = doc(db, 'listings', docId);
-    const existing = await getDoc(ref);
-    if (existing.exists()) continue;
-
-    const matches = activeProfiles.length === 0 ||
-      activeProfiles.some(p => matchesProfile(listing, p));
-
-    await setDoc(ref, {
-      ...listing,
-      matchedHouseholds: matches ? [householdId] : [],
-      createdAt: Date.now(),
-      publishedAt: listing.publishedAt
-        ? new Date(listing.publishedAt).getTime()
-        : Date.now(),
-    });
-    savedCount++;
+  async function runAnalysis() {
+    if (!anthropicKey) { setAnalysisErr('API-nyckel saknas.'); return; }
+    setAnalyzing(true);
+    setAnalysisErr(null);
+    setExpanded(true);
+    try {
+      const text = await fetchIoAnalysis(listing, anthropicKey);
+      setAnalysis(text);
+    } catch (e) {
+      setAnalysisErr('Kunde inte hämta analys: ' + e.message);
+    } finally {
+      setAnalyzing(false);
+    }
   }
 
-  return savedCount;
+  return (
+    <div className={'listing-card' + (watched ? ' listing-card--watched' : '') + (isNew ? ' listing-card--new' : '')}>
+
+      {/* ── Huvud ── */}
+      <div className="listing-card__header">
+        <div className="listing-card__title-group">
+          <div className="listing-card__address">
+            {url
+              ? <a href={url} target="_blank" rel="noopener noreferrer"
+                  className="listing-card__address-link">{street || '—'}</a>
+              : <span>{street || '—'}</span>}
+          </div>
+          <div className="listing-card__meta">{[area, city].filter(Boolean).join(', ') || '—'}</div>
+        </div>
+        <div className="listing-card__badges">
+          {isNew && <span className="badge badge--new">NY</span>}
+          {watched && <span className="badge badge--watched">⭐</span>}
+          {source && <span className={'badge badge--source badge--' + source}>{source}</span>}
+        </div>
+      </div>
+
+      {/* ── Nyckeltal ── */}
+      <div className="listing-card__stats">
+        {rooms > 0 && <span className="stat">{roomLabel(rooms)}</span>}
+        {sqm > 0 && <span className="stat">{formatSqm(sqm)}</span>}
+        {price > 0 && <span className="stat stat--price">{formatPrice(price)}</span>}
+        {pricePerSqm && <span className="stat stat--muted">{formatPrice(pricePerSqm)}/m²</span>}
+      </div>
+
+      {/* ── Detaljer ── */}
+      <div className="listing-card__details">
+        {fee > 0 && (
+          <span className="listing-card__detail">
+            <span className="listing-card__detail-label">Avgift</span>
+            <span>{formatRent(fee)}/mån</span>
+          </span>
+        )}
+        {agencyName && (
+          <span className="listing-card__detail">
+            <span className="listing-card__detail-label">Mäklare</span>
+            <span>{agencyName}</span>
+          </span>
+        )}
+        {agentName && (
+          <span className="listing-card__detail">
+            <span className="listing-card__detail-label">Ansvarig</span>
+            {agentEmail
+              ? <a href={'mailto:' + agentEmail} className="listing-card__link">{agentName}</a>
+              : <span>{agentName}</span>}
+          </span>
+        )}
+        {createdAt && (
+          <span className="listing-card__detail">
+            <span className="listing-card__detail-label">Inkom</span>
+            <span>{timeAgo(createdAt)}</span>
+          </span>
+        )}
+      </div>
+
+      {/* ── Visningstider ── */}
+      {showings && showings.length > 0 && (
+        <div className="listing-card__showings">
+          <span className="listing-card__detail-label">Visning</span>
+          {showings.map(function(s, i) {
+            return <span key={i} className="listing-card__showing">{s.date}{s.time ? ' ' + s.time : ''}</span>;
+          })}
+        </div>
+      )}
+
+      {/* ── Åtgärder ── */}
+      <div className="listing-card__actions">
+        <button
+          className={'btn-watch' + (watched ? ' btn-watch--active' : '')}
+          onClick={handleToggleWatch}
+          title={watched ? 'Sluta bevaka' : 'Bevaka'}>
+          {watched ? '⭐ Bevakas' : '☆ Bevaka'}
+        </button>
+        <button
+          className="btn-analyze"
+          onClick={function() {
+            if (!analysis && !analyzing) { runAnalysis(); }
+            else { setExpanded(function(v) { return !v; }); }
+          }}
+          title="Io-analys">
+          Io-analys {expanded ? '▲' : '▼'}
+        </button>
+      </div>
+
+      {/* ── Io-analys expanderbar ── */}
+      {expanded && (
+        <div className="listing-card__analysis">
+          {analyzing && (
+            <div className="listing-card__analysis-loading">
+              <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+              <span>Io analyserar…</span>
+            </div>
+          )}
+          {analysisErr && <div className="listing-card__analysis-error">{analysisErr}</div>}
+          {analysis && <div className="listing-card__analysis-text">{analysis}</div>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── FlödesSkärm ──────────────────────────────────────────────────────
 function FeedScreen({ user, householdId, household, profiles }) {
-  const [listings,  setListings]  = React.useState([]);
-  const [loading,   setLoading]   = React.useState(true);
-  const [importing, setImporting] = React.useState(false);
-  const [error,     setError]     = React.useState(null);
-  const [lastImport, setLastImport] = React.useState(null);
-  const [importMsg,  setImportMsg]  = React.useState(null);
-  const [filter,    setFilter]    = React.useState('alla');
+  const [listings,    setListings]    = React.useState([]);
+  const [loading,     setLoading]     = React.useState(true);
+  const [error,       setError]       = React.useState(null);
+  const [watched,     setWatched]     = React.useState({});
+  const [sortBy,      setSortBy]      = React.useState('createdAt');
+  const [sortDir,     setSortDir]     = React.useState('desc');
+  const [filterSource,  setFilterSource]  = React.useState('');
+  const [filterAgency,  setFilterAgency]  = React.useState('');
+  const [filterArea,    setFilterArea]    = React.useState('');
+  const [filterStreet,  setFilterStreet]  = React.useState('');
+  const [filterWatched, setFilterWatched] = React.useState(false);
+  const [showFilters,   setShowFilters]   = React.useState(false);
 
-  // ── Ladda annonser från Firestore ─────────────────────────────────
-  React.useEffect(() => {
+  const anthropicKey = household && household.anthropicKey;
+
+  // ── Ladda annonser ────────────────────────────────────────────────
+  React.useEffect(function() {
     if (!householdId) return;
-    const { db, collection, query, where, orderBy, limit, onSnapshot } = window.__firebase;
-
-    const q = query(
-      collection(db, 'listings'),
-      where('matchedHouseholds', 'array-contains', householdId),
-      orderBy('createdAt', 'desc'),
-      limit(100)
+    var fb = window.__firebase;
+    var q = fb.query(
+      fb.collection(fb.db, 'listings'),
+      fb.where('matchedHouseholds', 'array-contains', householdId),
+      fb.orderBy('createdAt', 'desc'),
+      fb.limit(200)
     );
-
-    const unsub = onSnapshot(q,
-      snap => {
-        setListings(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    var unsub = fb.onSnapshot(q,
+      function(snap) {
+        setListings(snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); }));
         setLoading(false);
       },
-      err => {
+      function(err) {
         console.error('Firestore-fel:', err);
-        setError('Kunde inte ladda annonser. Kontrollera att Firestore-index är skapat.');
+        setError('Kunde inte ladda annonser.');
         setLoading(false);
       }
     );
-
-    return () => unsub();
+    return unsub;
   }, [householdId]);
 
-  // ── Gmail-import ──────────────────────────────────────────────────
-  async function handleGmailImport() {
-    const anthropicKey = household?.anthropicKey;
-    if (!anthropicKey) {
-      setError('Anthropic API-nyckel saknas. Lägg till den i Inställningar.');
-      return;
-    }
-
-    setImporting(true);
-    setError(null);
-    setImportMsg(null);
-
-    try {
-      const result = await importFromGmail(anthropicKey, 'Flat Tracker');
-      setImportMsg(result.message);
-
-      if (result.listings && result.listings.length > 0) {
-        const saved = await saveListingsToFirestore(
-          result.listings, householdId, profiles || []
-        );
-        setImportMsg(
-          saved > 0
-            ? `✓ Importerade ${saved} nya annonser från ${result.emailsRead} mail.`
-            : `${result.emailsRead} mail lästa — alla annonser var redan sparade.`
-        );
+  // ── Ladda bevakningar från Firestore ──────────────────────────────
+  React.useEffect(function() {
+    if (!householdId) return;
+    var fb = window.__firebase;
+    var ref = fb.doc(fb.db, 'households', householdId);
+    var unsub = fb.onSnapshot(ref, function(snap) {
+      if (snap.exists()) {
+        setWatched(snap.data().watchedListings || {});
       }
-      setLastImport(new Date());
-    } catch (e) {
-      console.error('Gmail-importfel:', e);
-      setError(`Import misslyckades: ${e.message}`);
-    } finally {
-      setImporting(false);
+    });
+    return unsub;
+  }, [householdId]);
+
+  // ── Växla bevakning ───────────────────────────────────────────────
+  async function handleToggleWatch(listingId, newVal) {
+    var fb = window.__firebase;
+    var ref = fb.doc(fb.db, 'households', householdId);
+    var updated = Object.assign({}, watched, {});
+    if (newVal) { updated[listingId] = true; }
+    else { delete updated[listingId]; }
+    setWatched(updated);
+    await fb.updateDoc(ref, { watchedListings: updated });
+  }
+
+  // ── Sortering ─────────────────────────────────────────────────────
+  function toggleSort(field) {
+    if (sortBy === field) {
+      setSortDir(function(d) { return d === 'asc' ? 'desc' : 'asc'; });
+    } else {
+      setSortBy(field);
+      setSortDir(field === 'createdAt' ? 'desc' : 'asc');
     }
   }
 
-  const oneDayAgo   = Date.now() - 24 * 60 * 60 * 1000;
-  const newListings = listings.filter(l => (l.createdAt || 0) > oneDayAgo);
-  const shown       = filter === 'nya' ? newListings : listings;
+  function sortIcon(field) {
+    if (sortBy !== field) return '↕';
+    return sortDir === 'asc' ? '↑' : '↓';
+  }
+
+  // ── Unika värden för filter ───────────────────────────────────────
+  var sources  = Array.from(new Set(listings.map(function(l) { return l.source; }).filter(Boolean))).sort();
+  var agencies = Array.from(new Set(listings.map(function(l) { return l.agencyName; }).filter(Boolean))).sort();
+  var areas    = Array.from(new Set(listings.map(function(l) { return l.area; }).filter(Boolean))).sort();
+  var streets  = Array.from(new Set(listings.map(function(l) { return l.street; }).filter(Boolean))).sort();
+
+  // ── Filtrera ──────────────────────────────────────────────────────
+  var filtered = listings.filter(function(l) {
+    if (filterSource  && l.source     !== filterSource)  return false;
+    if (filterAgency  && l.agencyName !== filterAgency)  return false;
+    if (filterArea    && l.area       !== filterArea)     return false;
+    if (filterStreet  && l.street     !== filterStreet)   return false;
+    if (filterWatched && !watched[l.id])                  return false;
+    return true;
+  });
+
+  // ── Sortera ───────────────────────────────────────────────────────
+  var sorted = filtered.slice().sort(function(a, b) {
+    var av = a[sortBy] || 0;
+    var bv = b[sortBy] || 0;
+    return sortDir === 'asc' ? av - bv : bv - av;
+  });
+
+  var oneDayAgo   = Date.now() - 24 * 60 * 60 * 1000;
+  var newCount    = listings.filter(function(l) { return (l.createdAt || 0) > oneDayAgo; }).length;
+  var watchCount  = Object.keys(watched).length;
+  var activeFilters = [filterSource, filterAgency, filterArea, filterStreet, filterWatched].filter(Boolean).length;
 
   if (loading) return (
     <div className="screen">
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
-        justifyContent: 'center', padding: 40, gap: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, gap: 12 }}>
         <div className="spinner" />
         <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Laddar annonser…</p>
       </div>
@@ -212,101 +302,123 @@ function FeedScreen({ user, householdId, household, profiles }) {
   );
 
   return (
-    <div className="screen">
+    <div className="feed-screen">
 
-      {/* ── Import-rad ──────────────────────────────────────────────── */}
-      <div className="flex-between" style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-          {lastImport
-            ? `Senaste import ${lastImport.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}`
-            : listings.length > 0
-              ? `${listings.length} annonser`
-              : 'Inga annonser ännu'}
-        </div>
-        <button
-          className="btn btn--primary"
-          onClick={handleGmailImport}
-          disabled={importing}
-          style={{ fontSize: 13, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
-          {importing
-            ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Importerar…</>
-            : '✉ Importera från Gmail'}
-        </button>
+      {/* ── Statusrad ── */}
+      <div className="feed-statusbar">
+        <span className="feed-count">
+          {sorted.length} av {listings.length} annonser
+          {newCount > 0 && <span className="badge badge--new" style={{ marginLeft: 8 }}>{newCount} nya</span>}
+          {watchCount > 0 && <span className="badge badge--watched" style={{ marginLeft: 8 }}>⭐ {watchCount}</span>}
+        </span>
+        <span className="feed-auto-label">Hämtas automatiskt</span>
       </div>
 
-      {/* ── Statusmeddelande ────────────────────────────────────────── */}
-      {importMsg && (
-        <div style={{
-          fontSize: 13, marginBottom: 12, padding: '8px 12px',
-          background: importMsg.startsWith('✓') ? 'var(--surface-success, #e8f5e9)' : 'var(--surface-2)',
-          color: importMsg.startsWith('✓') ? 'var(--success, #2e7d32)' : 'var(--text-secondary)',
-          borderRadius: 'var(--radius)',
-        }}>
-          {importMsg}
-        </div>
-      )}
-
-      {/* ── Felmeddelande ───────────────────────────────────────────── */}
       {error && (
-        <div style={{
-          fontSize: 13, marginBottom: 12, padding: '8px 12px',
-          background: 'var(--surface-2)', color: 'var(--error)',
-          borderRadius: 'var(--radius)',
-        }}>
-          {error}
+        <div className="feed-error">{error}</div>
+      )}
+
+      {/* ── Sortering ── */}
+      <div className="feed-sort">
+        {[
+          { key: 'createdAt', label: 'Datum' },
+          { key: 'rooms',     label: 'Rum' },
+          { key: 'sqm',       label: 'Storlek' },
+          { key: 'price',     label: 'Pris' },
+        ].map(function(s) {
+          return (
+            <button
+              key={s.key}
+              className={'sort-btn' + (sortBy === s.key ? ' sort-btn--active' : '')}
+              onClick={function() { toggleSort(s.key); }}>
+              {s.label} {sortIcon(s.key)}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Filter-toggle ── */}
+      <div className="feed-filter-toggle">
+        <button
+          className={'btn-filter-toggle' + (showFilters ? ' active' : '') + (activeFilters > 0 ? ' has-filters' : '')}
+          onClick={function() { setShowFilters(function(v) { return !v; }); }}>
+          Filter {activeFilters > 0 ? '(' + activeFilters + ')' : ''} {showFilters ? '▲' : '▼'}
+        </button>
+        {activeFilters > 0 && (
+          <button className="btn-clear-filters" onClick={function() {
+            setFilterSource(''); setFilterAgency(''); setFilterArea('');
+            setFilterStreet(''); setFilterWatched(false);
+          }}>Rensa</button>
+        )}
+      </div>
+
+      {/* ── Filter-panel ── */}
+      {showFilters && (
+        <div className="feed-filters">
+          <div className="filter-row">
+            <label className="filter-label">Källa</label>
+            <select className="filter-select" value={filterSource}
+              onChange={function(e) { setFilterSource(e.target.value); }}>
+              <option value="">Alla</option>
+              {sources.map(function(s) { return <option key={s} value={s}>{s}</option>; })}
+            </select>
+          </div>
+          <div className="filter-row">
+            <label className="filter-label">Mäklare</label>
+            <select className="filter-select" value={filterAgency}
+              onChange={function(e) { setFilterAgency(e.target.value); }}>
+              <option value="">Alla</option>
+              {agencies.map(function(a) { return <option key={a} value={a}>{a}</option>; })}
+            </select>
+          </div>
+          <div className="filter-row">
+            <label className="filter-label">Område</label>
+            <select className="filter-select" value={filterArea}
+              onChange={function(e) { setFilterArea(e.target.value); }}>
+              <option value="">Alla</option>
+              {areas.map(function(a) { return <option key={a} value={a}>{a}</option>; })}
+            </select>
+          </div>
+          <div className="filter-row">
+            <label className="filter-label">Gata</label>
+            <select className="filter-select" value={filterStreet}
+              onChange={function(e) { setFilterStreet(e.target.value); }}>
+              <option value="">Alla</option>
+              {streets.map(function(s) { return <option key={s} value={s}>{s}</option>; })}
+            </select>
+          </div>
+          <div className="filter-row">
+            <label className="filter-label filter-label--checkbox">
+              <input type="checkbox" checked={filterWatched}
+                onChange={function(e) { setFilterWatched(e.target.checked); }} />
+              Visa endast bevakade
+            </label>
+          </div>
         </div>
       )}
 
-      {/* ── Onboarding om inga annonser ─────────────────────────────── */}
-      {listings.length === 0 && !importing && (
-        <Card style={{ marginBottom: 16, background: 'var(--surface-2)' }}>
-          <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
-            🚀 Kom igång med annonshämtning
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            <div style={{ marginBottom: 6 }}>
-              <strong>1.</strong> Sätt upp bevakningar på <a href="https://hemnet.se" target="_blank"
-                rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>hemnet.se</a> och <a
-                href="https://booli.se" target="_blank" rel="noopener noreferrer"
-                style={{ color: 'var(--primary)' }}>booli.se</a>
-            </div>
-            <div style={{ marginBottom: 6 }}>
-              <strong>2.</strong> Skapa en Gmail-label som heter <strong>Flat Tracker</strong>
-            </div>
-            <div style={{ marginBottom: 6 }}>
-              <strong>3.</strong> Skapa Gmail-filter: mail från hemnet/booli → label Flat Tracker
-            </div>
-            <div>
-              <strong>4.</strong> Tryck <strong>Importera från Gmail</strong> ovan
-            </div>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--text-hint)', marginTop: 10 }}>
-            💡 Fråga Io om hjälp med att sätta upp bevakningar och Gmail-filter
-          </div>
-        </Card>
-      )}
-
-      {/* ── Filter ──────────────────────────────────────────────────── */}
-      {listings.length > 0 && (
-        <div className="flex gap-8" style={{ marginBottom: 16 }}>
-          <button
-            className={`chip ${filter === 'alla' ? 'chip--primary' : ''}`}
-            onClick={() => setFilter('alla')}>
-            Alla ({listings.length})
-          </button>
-          <button
-            className={`chip ${filter === 'nya' ? 'chip--primary' : ''}`}
-            onClick={() => setFilter('nya')}>
-            Nya ({newListings.length})
-          </button>
-        </div>
-      )}
-
-      {/* ── Annonsflöde ─────────────────────────────────────────────── */}
-      {shown.length === 0 && listings.length > 0 ? (
-        <EmptyState icon="✓" title="Inga nya annonser" text="Alla annonser är äldre än 24 timmar." />
+      {/* ── Annonslist ── */}
+      {sorted.length === 0 ? (
+        <EmptyState
+          icon="🏠"
+          title="Inga annonser"
+          text={listings.length > 0 ? 'Inga annonser matchar dina filter.' : 'Annonser hämtas automatiskt när nya bevakningsmail kommer in.'}
+        />
       ) : (
-        shown.map(l => <ListingCard key={l.id} listing={l} />)
+        <div className="listings-list">
+          {sorted.map(function(l) {
+            return (
+              <ListingCard
+                key={l.id}
+                listing={l}
+                householdId={householdId}
+                anthropicKey={anthropicKey}
+                watched={!!watched[l.id]}
+                onToggleWatch={handleToggleWatch}
+              />
+            );
+          })}
+        </div>
       )}
     </div>
   );
