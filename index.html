@@ -773,7 +773,6 @@ html, body {
   z-index: 50;
   display: flex;
   flex-direction: column;
-  animation: slideUp 220ms ease;
   transform: translateY(100%);
   transition: transform 220ms ease;
   pointer-events: none;
@@ -784,25 +783,21 @@ html, body {
   pointer-events: all;
 }
 
-/* Desktop: panel från höger — overlay, påverkar inte layouten */
+/* Desktop: panel från höger som overlay */
 @media (min-width: 768px) {
   .io-overlay { display: none; }
 
   .io-flyout {
-    position: fixed;
     top: 0;
+    left: auto;
     right: 0;
     bottom: 0;
     width: 360px;
     height: 100%;
     border-radius: 0;
     border-left: 1px solid var(--divider);
-    animation: none;
-    overflow: hidden;
-    flex-shrink: 0;
-    transition: transform 220ms ease;
     transform: translateX(100%);
-    z-index: 50;
+    transition: transform 220ms ease;
     pointer-events: none;
   }
 
@@ -812,6 +807,22 @@ html, body {
     box-shadow: var(--elev-3);
   }
 }
+
+/* ── Io flyout stängknapp ─────────────────────────────────────────── */
+.io-flyout__close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  padding: 8px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition);
+}
+.io-flyout__close:hover { background: var(--surface-2); }
 
 @keyframes slideInRight {
   from { transform: translateX(100%); }
@@ -1849,8 +1860,7 @@ function IoFlyout({ household, open, onClose }) {
               <div style={{ fontSize: 12, color: 'var(--text-hint)' }}>AI-assistent</div>
             </div>
           </div>
-          <button className="top-bar__action" style={{ color: 'var(--text-secondary)' }}
-            onClick={onClose}>✕</button>
+          <button className="io-flyout__close" onClick={onClose}>✕</button>
         </div>
 
         {/* Meddelanden */}
