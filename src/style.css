@@ -495,7 +495,17 @@ html, body {
   border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
-  margin: 32px auto;
+  flex-shrink: 0;
+}
+
+.spinner-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  z-index: 99;
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -581,7 +591,8 @@ html, body {
 
 /* ── Login screen ────────────────────────────────────────────────── */
 .login-screen {
-  height: 100%;
+  position: fixed;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -589,6 +600,7 @@ html, body {
   padding: 32px 24px;
   text-align: center;
   background: var(--bg);
+  z-index: 100;
 }
 
 .login-screen__title { font-size: 28px; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
@@ -1139,3 +1151,168 @@ html, body {
 }
 .listing-card__analysis-error { color: var(--error); font-size: 13px; }
 .listing-card__analysis-text  { white-space: pre-wrap; }
+
+/* ══════════════════════════════════════════════════════════════════
+   SPRINT 7 — Flöde: listvy, sortering, filter, bevakning, Io-analys
+══════════════════════════════════════════════════════════════════ */
+
+/* ── Feed-layout ─────────────────────────────────────────────────── */
+.feed-screen {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 16px;
+  padding-bottom: calc(var(--nav-h) + 16px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.feed-screen::-webkit-scrollbar { display: none; }
+
+@media (min-width: 768px) {
+  .feed-screen { padding: 24px 32px 24px; padding-bottom: 24px; max-width: 900px; }
+}
+
+.feed-statusbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 4px 0;
+}
+
+.feed-count { display: flex; align-items: center; gap: 4px; font-weight: 500; }
+.feed-auto-label { font-size: 11px; color: var(--text-hint); }
+.feed-error {
+  font-size: 13px; padding: 8px 12px; background: var(--surface-2);
+  color: var(--error); border-radius: var(--radius-sm);
+}
+
+/* ── Sortering ───────────────────────────────────────────────────── */
+.feed-sort { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.sort-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1.5px solid var(--divider);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+.sort-btn:hover { border-color: var(--primary); color: var(--primary); }
+.sort-btn--active { border-color: var(--primary); background: var(--primary); color: var(--text-on-primary); }
+
+/* ── Filter ──────────────────────────────────────────────────────── */
+.feed-filter-toggle { display: flex; align-items: center; gap: 8px; }
+
+.btn-filter-toggle {
+  padding: 5px 12px; font-size: 12px; font-weight: 500;
+  border: 1.5px solid var(--divider); border-radius: var(--radius-full);
+  background: var(--surface); color: var(--text-secondary);
+  cursor: pointer; transition: var(--transition);
+}
+.btn-filter-toggle.active,
+.btn-filter-toggle.has-filters { border-color: var(--accent); color: var(--accent); }
+
+.btn-clear-filters {
+  font-size: 12px; color: var(--error); background: none;
+  border: none; cursor: pointer; padding: 4px 8px; border-radius: var(--radius-sm);
+}
+.btn-clear-filters:hover { background: var(--surface-2); }
+
+.feed-filters {
+  background: var(--surface); border: 1px solid var(--divider);
+  border-radius: var(--radius); padding: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.filter-row { display: flex; align-items: center; gap: 10px; }
+.filter-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); min-width: 64px; }
+.filter-label--checkbox {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  min-width: unset; font-size: 13px; color: var(--text-primary);
+}
+.filter-select {
+  flex: 1; padding: 6px 10px; font-size: 13px;
+  border: 1.5px solid var(--divider); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text-primary); appearance: auto;
+}
+.filter-select:focus { outline: none; border-color: var(--primary); }
+
+/* ── Annonslist ──────────────────────────────────────────────────── */
+.listings-list { display: flex; flex-direction: column; gap: 10px; padding-bottom: 16px; }
+
+/* ── ListingCard ─────────────────────────────────────────────────── */
+.listing-card {
+  background: var(--surface); border-radius: var(--radius);
+  box-shadow: var(--elev-1); padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  transition: box-shadow var(--transition); border-left: 3px solid transparent;
+}
+.listing-card:hover { box-shadow: var(--elev-2); }
+.listing-card--new     { border-left-color: var(--new-badge); }
+.listing-card--watched { border-left-color: var(--accent); background: #FFFBF2; }
+
+.listing-card__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.listing-card__title-group { flex: 1; min-width: 0; }
+.listing-card__address {
+  font-size: 15px; font-weight: 600; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.listing-card__address-link { color: var(--primary); text-decoration: none; }
+.listing-card__address-link:hover { text-decoration: underline; }
+.listing-card__meta { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+.listing-card__badges { display: flex; gap: 4px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 7px; border-radius: var(--radius-full);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase;
+}
+.badge--new     { background: var(--new-badge); color: white; }
+.badge--watched { background: var(--accent);     color: white; }
+.badge--source  { background: var(--surface-2);  color: var(--text-secondary); }
+.badge--hemnet  { background: #E8F5E9; color: #2E7D32; }
+.badge--booli   { background: #E3F2FD; color: #1565C0; }
+.badge--boneo   { background: #F3E5F5; color: #6A1B9A; }
+
+.listing-card__stats { display: flex; gap: 6px; flex-wrap: wrap; }
+.stat { padding: 3px 10px; border-radius: var(--radius-full); font-size: 12px; font-weight: 500; background: var(--surface-2); color: var(--text-primary); }
+.stat--price { background: #FFF3E0; color: var(--accent); font-weight: 700; }
+.stat--muted { color: var(--text-secondary); background: transparent; padding-left: 0; }
+
+.listing-card__details { display: flex; flex-wrap: wrap; gap: 10px 16px; font-size: 12px; color: var(--text-primary); }
+.listing-card__detail { display: flex; align-items: center; gap: 4px; }
+.listing-card__detail-label { color: var(--text-hint); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px; }
+.listing-card__link { color: var(--primary); text-decoration: none; }
+.listing-card__link:hover { text-decoration: underline; }
+
+.listing-card__showings { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; }
+.listing-card__showing { background: #E8F5E9; color: #2E7D32; border-radius: var(--radius-sm); padding: 2px 8px; font-size: 12px; }
+
+.listing-card__actions { display: flex; gap: 8px; padding-top: 4px; border-top: 1px solid var(--divider); }
+.btn-watch, .btn-analyze {
+  flex: 1; padding: 7px 10px; font-size: 12px; font-weight: 500;
+  border-radius: var(--radius-sm); cursor: pointer; transition: var(--transition);
+  border: 1.5px solid var(--divider); background: var(--surface); color: var(--text-secondary);
+}
+.btn-watch:hover   { border-color: var(--accent);  color: var(--accent); }
+.btn-analyze:hover { border-color: var(--primary); color: var(--primary); }
+.btn-watch--active { background: var(--accent); border-color: var(--accent); color: white; }
+
+.listing-card__analysis {
+  background: #F0F4FF; border-radius: var(--radius-sm); padding: 12px;
+  font-size: 13px; line-height: 1.6; color: var(--text-primary);
+  border-left: 3px solid var(--primary);
+}
+.listing-card__analysis-loading { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 13px; }
+.listing-card__analysis-error   { color: var(--error); font-size: 13px; }
+.listing-card__analysis-text    { white-space: pre-wrap; }

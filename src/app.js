@@ -74,7 +74,7 @@ function App() {
   // ── Laddar ────────────────────────────────────────────────────────
   if (user === undefined || (user && householdId === undefined)) {
     return (
-      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="spinner-screen">
         <Spinner />
       </div>
     );

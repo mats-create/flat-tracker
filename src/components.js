@@ -92,51 +92,7 @@ function Chip({ label, variant }) {
   return <span className={`chip chip--${variant || 'primary'}`}>{label}</span>;
 }
 
-// ── ListingCard ──────────────────────────────────────────────────────
-function ListingCard({ listing }) {
-  const {
-    street, area, city, rooms, sqm, price,
-    monthlyFee, rent, createdAt, publishedAt, published,
-    isNew, url, source,
-  } = listing;
-
-  const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-  const isNewListing = isNew || (createdAt && createdAt > oneDayAgo);
-  const fee = monthlyFee || rent || 0;
-  const timestamp = createdAt || publishedAt || published;
-
-  return (
-    <Card variant={isNewListing ? 'new' : null}>
-      <div className="flex-between">
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="list-item__title">{street || '—'}</div>
-          <div className="list-item__sub">{[area, city].filter(Boolean).join(', ') || '—'}</div>
-        </div>
-        <div className="flex gap-8" style={{ alignItems: 'center', flexShrink: 0 }}>
-          {isNewListing && <Chip label="NY" variant="error" />}
-          {source && <Chip label={source} variant="primary" />}
-        </div>
-      </div>
-      <div className="flex gap-8 mt-12" style={{ flexWrap: 'wrap' }}>
-        {rooms > 0 && <Chip label={roomLabel(rooms)} variant="primary" />}
-        {sqm > 0 && <Chip label={formatSqm(sqm)} variant="primary" />}
-        {price > 0 && <Chip label={formatPrice(price)} variant="accent" />}
-      </div>
-      <div className="flex-between mt-8">
-        <span className="text-sm text-muted">{fee > 0 ? formatRent(fee) : ''}</span>
-        <div className="flex gap-8" style={{ alignItems: 'center' }}>
-          {timestamp && <span className="text-sm text-muted">{timeAgo(timestamp)}</span>}
-          {url && (
-            <a href={url} target="_blank" rel="noopener noreferrer"
-              className="text-sm" style={{ color: 'var(--primary)' }}>
-              Visa →
-            </a>
-          )}
-        </div>
-      </div>
-    </Card>
-  );
-}
+// ListingCard är definierad i screens.js
 
 // ── LoginScreen ──────────────────────────────────────────────────────
 function LoginScreen({ onLogin }) {
@@ -235,6 +191,17 @@ function SettingsMenu({ user, household, onClose, onSignOut }) {
         </div>
 
         {divider}
+
+        {/* Logga ut */}
+        <button className="btn btn--full" onClick={onSignOut}
+          style={{
+            background: 'var(--surface-2)', color: 'var(--error)',
+            borderRadius: 'var(--radius)', padding: '12px',
+            border: 'none', cursor: 'pointer', fontWeight: 500, fontSize: 14,
+            marginBottom: 16,
+          }}>
+          Logga ut
+        </button>
 
         {/* Hushåll */}
         <div className="section-header" style={{ marginTop: 0 }}>Hushåll</div>
@@ -371,16 +338,6 @@ function SettingsMenu({ user, household, onClose, onSignOut }) {
             </Card>
           </>
         )}
-
-        {/* Logga ut */}
-        <button className="btn btn--full" onClick={onSignOut}
-          style={{
-            background: 'var(--surface-2)', color: 'var(--error)',
-            borderRadius: 'var(--radius)', padding: '14px',
-            border: 'none', cursor: 'pointer', fontWeight: 500, fontSize: 15,
-          }}>
-          Logga ut
-        </button>
 
       </div>
     </div>
