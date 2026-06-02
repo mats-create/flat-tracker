@@ -1,6 +1,6 @@
 # Flat Tracker — Backlog
 
-> Senast uppdaterad: 2026-06-02 (session 3)
+> Senast uppdaterad: 2026-06-02 (session 5)
 
 ---
 
@@ -41,12 +41,13 @@
 ### Sprint 4 — Io AI-assistent
 - Io ersätter Hunter (namnbyte)
 - Flyout-panel istället för egen flik
-- Desktop: glider in från höger, skjuter mittspaltens utrymme
+- Desktop: panel från höger som flex-sibling, skjuter in layouten
 - Mobil: bottom sheet (85vh)
-- FAB-knapp följer med app-body på desktop
+- FAB-knapp, förskjuts när Io-panelen är öppen
 - Haiku-modell (kostnadseffektiv)
 - API-nyckel från hushållets Firestore-dokument
 - Korrekt browser-header: anthropic-dangerous-direct-browser-access
+- Markdown-rendering i Io-svar (fetstil, kursiv, punktlistor)
 
 ### Sprint 5 — Bevakningsprofiler
 - Max 5 profiler per hushåll
@@ -66,7 +67,7 @@
 - Tre Cloud Functions: gmailPush, setupGmailPush, renewGmailPush
 - Dokumentation: CLOUD_FUNCTIONS_SETUP.md och POST_MORTEM.md
 
-### Sprint 7 — Flödet: listvy och användbarhet (pågående)
+### Sprint 7 — Flödet: listvy och användbarhet
 - Ny ListingCard med mäklare, ansvarig säljare, visningstider
 - Sortering: datum, rum, storlek, pris
 - Filtrering: källa, mäklare, område, gata, bevakade
@@ -75,7 +76,15 @@
 - Importknapp borttagen — statusrad istället
 - Logga ut uppflyttad i inställningar
 - Login-skärm och spinner centrerade i viewport
-- Io-flyout på desktop som overlay (ingen layout-shift)
+
+### Sprint 7b — Desktop UI-polish (session 5)
+- Sidebar expand/collapse med animerad breddövergång
+- Io-panel renderas som riktig flex-sibling (inte position:fixed) på desktop
+- Io-panel på mobil: bottom sheet oförändrat
+- FAB-knapp synlig på desktop, förskjuts 360px från höger när Io-panelen är öppen
+- Io borttagen från sidebaren — öppnas enbart via FAB
+- Scrollbar synlig i flödeslistan på desktop
+- Markdown-rendering i Io-svar och per-annons-analys
 
 ---
 
@@ -216,7 +225,13 @@
 - Io-chatthistorik försvinner vid sidomladdning (ej Firestore-persisterad)
 - `favicon-192.png` saknas (ofarligt, favicon.svg används)
 - Bekräftelsedialog för profilborttagning använder native window.confirm — bör ersättas med custom modal
-- Io FAB syns även på desktop (ska kanske döljas där Io-länken finns i sidebar)
 - Mock-data används fortfarande i Områden-skärmen
 - renewGmailPush schemalagd via Pub/Sub istället för Cloud Scheduler (teknisk skuld)
 - Node.js 20 deprecated i Cloud Functions — bör uppgraderas till Node.js 22 innan oktober 2026
+
+---
+
+## 🔮 Io — förbättringsområden
+
+- **Faktabaserade omdömen med källhänvisningar** — Io ska vara konkret och explicit ange vilka datakällor och antaganden som ligger bakom ett omdöme. Låga kvadratmeterpriser ska kontextualiseras korrekt mot demografiska, sociala och infrastrukturella faktorer — inte automatiskt tolkas som fynd. Felaktiga områdesbeskrivningar (t.ex. att beskriva ett område präglat av flerfamiljshus med sociala utmaningar som "villaområde") är oacceptabelt. Kräver genomarbetning av `IO_SYSTEM_PROMPT` i `constants.js`.
+- **Io-analys i flödeslistan** — nuvarande placering och interaktion behöver ses över. Tas upp separat.
