@@ -113,14 +113,14 @@ function App() {
       {/* ── Desktop sidebar ────────────────────────────────────────── */}
       <aside className={`sidebar ${sidebarCollapsed ? 'sidebar--collapsed' : ''}`}>
         <div className="sidebar__brand">
-          <Logo size={32} />
-          <span className="sidebar__brand-name">Flat Tracker</span>
+          {!sidebarCollapsed && <Logo size={28} />}
+          {!sidebarCollapsed && <span className="sidebar__brand-name">Flat Tracker</span>}
           <button
             className="sidebar__collapse-btn"
             onClick={() => setSidebarCollapsed(v => !v)}
             title={sidebarCollapsed ? 'Expandera meny' : 'Minimera meny'}
           >
-            {sidebarCollapsed ? '→' : '←'}
+            {sidebarCollapsed ? '▶' : '◀'}
           </button>
         </div>
 

@@ -182,112 +182,114 @@ html, body {
 ══════════════════════════════════════════════════════════════════ */
 @media (min-width: 768px) {
 
-  /* ── Root: horisontell flex-rad — sidebar | app-body | io-panel ── */
+  /* ── Root: horisontell flex-rad ────────────────────────────────── */
   #root {
     flex-direction: row;
     overflow: hidden;
   }
 
-  /* ── Sidebar ───────────────────────────────────────────────────── */
+  /* ════════════════════════════════════════════════════════════════
+     SIDEBAR
+  ════════════════════════════════════════════════════════════════ */
   .sidebar {
     display: flex;
     flex-direction: column;
     width: var(--sidebar-w);
-    min-width: var(--sidebar-w);
     background: var(--surface);
     border-right: 1px solid var(--divider);
     flex-shrink: 0;
-    z-index: 10;
     box-shadow: var(--elev-1);
-    transition: width 200ms ease, min-width 200ms ease;
-    overflow: hidden;
+    transition: width 220ms ease;
+    /* Ingen overflow:hidden — den klipps bort av bredden via transition */
   }
 
-  /* Kollapsad sidebar — bara ikoner */
-  .sidebar--collapsed {
-    width: 56px;
-    min-width: 56px;
-  }
+  /* Kollapsad: bara ikoner (56px = ikonbredd + padding) */
+  .sidebar--collapsed { width: 56px; }
+  .sidebar--collapsed .sidebar__brand { justify-content: center; }
 
+  /* Brand-rad */
   .sidebar__brand {
+    height: 56px;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 16px 12px;
+    padding: 0 12px;
+    gap: 10px;
     border-bottom: 1px solid var(--divider);
     flex-shrink: 0;
-    min-height: 56px;
+    overflow: hidden;
   }
 
   .sidebar__brand-name {
     font-size: 17px;
     font-weight: 700;
     color: var(--primary);
-    letter-spacing: 0.2px;
     white-space: nowrap;
-    overflow: hidden;
     flex: 1;
-    transition: opacity 150ms ease;
+    overflow: hidden;
   }
 
-  .sidebar--collapsed .sidebar__brand-name { opacity: 0; pointer-events: none; }
-
+  /* Collapse-knapp — alltid synlig, alltid höger i brand-raden */
   .sidebar__collapse-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-secondary);
-    padding: 4px;
-    border-radius: var(--radius-sm);
+    width: 32px;
+    height: 32px;
     flex-shrink: 0;
-    font-size: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 14px;
     transition: background var(--transition);
   }
   .sidebar__collapse-btn:hover { background: var(--surface-2); }
 
+  /* Nav */
   .sidebar__nav {
     flex: 1;
-    padding: 12px 8px;
+    padding: 8px 6px;
     display: flex;
     flex-direction: column;
     gap: 2px;
     overflow: hidden;
   }
 
+  /* Nav-item */
   .sidebar__item {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 12px 16px;
+    gap: 12px;
+    padding: 10px 10px;
     border-radius: var(--radius);
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 500;
     color: var(--text-secondary);
     transition: background var(--transition), color var(--transition);
-    position: relative;
-    text-align: left;
     width: 100%;
     white-space: nowrap;
+    overflow: hidden;
+    text-align: left;
   }
-
-  .sidebar--collapsed .sidebar__item { padding: 12px; justify-content: center; }
 
   .sidebar__item:hover  { background: var(--surface-2); color: var(--text-primary); }
   .sidebar__item.active { background: #E3F0FF; color: var(--primary); }
 
-  .sidebar__item-icon  { font-size: 20px; flex-shrink: 0; }
-  .sidebar__item-label {
-    flex: 1;
-    overflow: hidden;
-    transition: opacity 150ms ease;
+  .sidebar__item-icon {
+    font-size: 20px;
+    width: 24px;
+    flex-shrink: 0;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
-  .sidebar--collapsed .sidebar__item-label { opacity: 0; width: 0; pointer-events: none; }
+
+  .sidebar__item-label { flex: 1; overflow: hidden; }
 
   .sidebar__item-badge {
     background: var(--new-badge);
@@ -297,47 +299,38 @@ html, body {
     min-width: 20px;
     height: 20px;
     border-radius: var(--radius-full);
-    padding: 0 6px;
+    padding: 0 5px;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
   }
-  .sidebar--collapsed .sidebar__item-badge { display: none; }
 
+  /* Footer */
   .sidebar__footer {
-    padding: 12px 8px;
+    padding: 8px 6px;
     border-top: 1px solid var(--divider);
     flex-shrink: 0;
+    overflow: hidden;
   }
 
   .sidebar__settings-btn {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
+    gap: 10px;
+    padding: 8px 10px;
     border-radius: var(--radius);
     background: none;
     border: none;
     cursor: pointer;
     width: 100%;
-    font-size: 14px;
     color: var(--text-secondary);
     transition: background var(--transition);
     white-space: nowrap;
-  }
-
-  .sidebar--collapsed .sidebar__settings-btn { justify-content: center; padding: 10px; }
-
-  .sidebar__settings-btn:hover { background: var(--surface-2); }
-
-  .sidebar__settings-text {
-    flex: 1;
-    text-align: left;
     overflow: hidden;
-    transition: opacity 150ms ease;
+    text-align: left;
   }
-  .sidebar--collapsed .sidebar__settings-text { opacity: 0; width: 0; pointer-events: none; }
-  .sidebar--collapsed .sidebar__settings-gear { display: none; }
+  .sidebar__settings-btn:hover { background: var(--surface-2); }
 
   .sidebar__avatar {
     width: 32px;
@@ -353,7 +346,17 @@ html, body {
     flex-shrink: 0;
   }
 
-  /* ── App-body: tar resterande bredd, scrollar internt ──────────── */
+  .sidebar__settings-text {
+    flex: 1;
+    overflow: hidden;
+    text-align: left;
+  }
+
+  .sidebar__settings-gear { flex-shrink: 0; font-size: 15px; }
+
+  /* ════════════════════════════════════════════════════════════════
+     APP-BODY
+  ════════════════════════════════════════════════════════════════ */
   .app-body {
     flex: 1;
     min-width: 0;
@@ -362,7 +365,6 @@ html, body {
     flex-direction: column;
   }
 
-  /* ── Top bar på desktop ────────────────────────────────────────── */
   .top-bar {
     background: var(--surface);
     color: var(--text-primary);
@@ -371,56 +373,43 @@ html, body {
     flex-shrink: 0;
   }
 
-  .top-bar__title {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  /* ── Dölj kugghjul i toppraden på desktop (finns i sidebar) ───── */
+  .top-bar__title { font-size: 20px; font-weight: 700; color: var(--text-primary); }
   .top-bar__action { display: none; }
 
-  /* ── Screen på desktop ─────────────────────────────────────────── */
   .screen {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 24px 32px;
-    padding-bottom: 24px;
+    padding: 24px 32px 24px;
     max-width: 900px;
   }
 
-  /* ── Dölj bottom nav på desktop ────────────────────────────────── */
   .bottom-nav { display: none; }
+  .io-fab     { display: none; }
 
-  /* ── Io FAB dold på desktop (knappen finns i sidebar) ─────────── */
-  .io-fab { display: none; }
-
-  /* ── Två kolumner för kort på desktop ──────────────────────────── */
-  .card-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-
+  .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .card-grid .card { margin-bottom: 0; }
 
-  /* ── Io-panel: flex-sibling som skjuter in layouten ───────────── */
+  /* ════════════════════════════════════════════════════════════════
+     IO-PANEL — flex-sibling som skjuter in layouten
+  ════════════════════════════════════════════════════════════════ */
   .io-flyout {
+    /* Åsidosätt mobil position:fixed */
     position: relative;
-    top: auto;
+    bottom: auto;
     left: auto;
     right: auto;
-    bottom: auto;
-    width: 0;
+    top: auto;
     height: auto;
     border-radius: 0;
-    border-left: none;
     transform: none;
-    transition: width 220ms ease;
-    overflow: hidden;
+    /* Stängd: nollbredd, inget innehåll syns */
+    width: 0;
     flex-shrink: 0;
+    overflow: hidden;
+    transition: width 220ms ease;
     pointer-events: none;
+    background: var(--surface);
   }
 
   .io-flyout--open {
@@ -428,7 +417,9 @@ html, body {
     border-left: 1px solid var(--divider);
     box-shadow: var(--elev-2);
     pointer-events: all;
-    transform: none;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 }
 
@@ -906,11 +897,11 @@ html, body {
 
 @media (min-width: 768px) {
   .feed-screen {
-    padding: 24px 32px;
-    padding-bottom: 24px;
+    padding: 24px 32px 24px;
     max-width: 900px;
     flex: 1;
     min-height: 0;
+    overflow-y: auto;
   }
 }
 
