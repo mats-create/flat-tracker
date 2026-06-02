@@ -176,3 +176,173 @@ exports.setupGmailPush = functions
       res.status(500).send('Fel: ' + err.message);
     }
   });
+
+// enrichListing — Cloud Function som hämtar fullständig annonsdata från Hemnet/Booli
+// Triggas automatiskt när en ny annons skapas i Firestore listings/
+
+// db är redan definierad i index.js
+
+// ── Hemnet HTML-parser ───────────────────────────────────────────────
+function parseHemnetPage(html) {
+  const result = {};
+
+  // Beskrivningstext
+  const descMatch = html.match(/class="[^"]*description[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+  if (descMatch) {
+    result.description = descMatch[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  }
+
+  // Alla bilder
+  const imageUrls = [];
+  const imgRegex = /https:\/\/bilder\.hemnet\.se\/images\/[^"'\s]+/g;
+  const imgMatches = html.match(imgRegex);
+  if (imgMatches) {
+    const unique = [...new Set(imgMatches.filter(u => !u.includes('_cut')))];
+    imageUrls.push(...unique.slice(0, 20));
+  }
+  result.imageUrls = imageUrls;
+
+  // Mäklarfirma
+  const agencyMatch = html.match(/"broker_agency_name"\s*:\s*"([^"]+)"/i) ||
+    html.match(/class="[^"]*broker[^"]*agency[^"]*"[^>]*>([^<]+)</) ||
+    html.match(/<span[^>]*class="[^"]*agency[^"]*"[^>]*>([^<]+)<\/span>/i);
+  if (agencyMatch) result.agencyName = agencyMatch[1].trim();
+
+  // Mäklare namn
+  const agentMatch = html.match(/"broker_name"\s*:\s*"([^"]+)"/i) ||
+    html.match(/class="[^"]*broker[^"]*name[^"]*"[^>]*>([^<]+)</) ||
+    html.match(/"agent"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"/i);
+  if (agentMatch) result.agentName = agentMatch[1].trim();
+
+  // Mäklare telefon
+  const phoneMatch = html.match(/"broker_phone_number"\s*:\s*"([^"]+)"/i) ||
+    html.match(/href="tel:([^"]+)"/i);
+  if (phoneMatch) result.agentPhone = phoneMatch[1].trim();
+
+  // Mäklare e-post
+  const emailMatch = html.match(/"broker_email"\s*:\s*"([^"]+)"/i) ||
+    html.match(/href="mailto:([^"]+)"/i);
+  if (emailMatch) result.agentEmail = emailMatch[1].trim();
+
+  // Mäklarfirmans URL
+  const agencyUrlMatch = html.match(/"broker_agency_url"\s*:\s*"([^"]+)"/i) ||
+    html.match(/class="[^"]*broker[^"]*logo[^"]*"[^>]*href="([^"]+)"/i);
+  if (agencyUrlMatch) result.agencyUrl = agencyUrlMatch[1].trim();
+
+  // Mäklarfirmans logotyp
+  const agencyLogoMatch = html.match(/"broker_agency_logo_url"\s*:\s*"([^"]+)"/i) ||
+    html.match(/class="[^"]*broker[^"]*logo[^"]*"[^>]*src="([^"]+)"/i);
+  if (agencyLogoMatch) result.agencyLogoUrl = agencyLogoMatch[1].trim();
+
+  // Byggår
+  const builtMatch = html.match(/"construction_year"\s*:\s*(\d{4})/i) ||
+    html.match(/Byggår[^<]*<[^>]+>(\d{4})/i);
+  if (builtMatch) result.builtYear = parseInt(builtMatch[1]);
+
+  // Driftskostnad
+  const operatingMatch = html.match(/"operating_cost"\s*:\s*(\d+)/i) ||
+    html.match(/Driftskostnad[^<]*<[^>]+>([\d\s]+)kr/i);
+  if (operatingMatch) result.operatingCost = parseInt(operatingMatch[1].replace(/\s/g, ''));
+
+  // Månadsavgift (om ej redan känd)
+  const feeMatch = html.match(/"fee"\s*:\s*(\d+)/i) ||
+    html.match(/Avgift[^<]*<[^>]+>([\d\s]+)kr/i);
+  if (feeMatch) result.monthlyFee = parseInt(feeMatch[1].replace(/\s/g, ''));
+
+  // Energiklass
+  const energyMatch = html.match(/"energy_class"\s*:\s*"([A-G])"/i) ||
+    html.match(/Energiklass[^<]*<[^>]+>([A-G])</i);
+  if (energyMatch) result.energyClass = energyMatch[1];
+
+  // Fastighetsbeteckning
+  const propDesigMatch = html.match(/"property_designation"\s*:\s*"([^"]+)"/i) ||
+    html.match(/Fastighetsbeteckning[^<]*<[^>]+>([^<]+)</i);
+  if (propDesigMatch) result.propertyDesignation = propDesigMatch[1].trim();
+
+  // Våningsplan
+  const floorMatch = html.match(/"floor"\s*:\s*(\d+)/i) ||
+    html.match(/Våning[^<]*<[^>]+>(\d+)/i);
+  if (floorMatch) result.floor = parseInt(floorMatch[1]);
+
+  // Antal våningar i byggnaden
+  const floorsMatch = html.match(/"number_of_floors"\s*:\s*(\d+)/i);
+  if (floorsMatch) result.numberOfFloors = parseInt(floorsMatch[1]);
+
+  // Direktlänk till mäklarens annons — leta efter extern URL i JSON-data
+  const brokerUrlMatch = html.match(/"broker_listing_url"\s*:\s*"([^"]+)"/i) ||
+    html.match(/"external_url"\s*:\s*"([^"]+)"/i);
+  if (brokerUrlMatch) result.brokerListingUrl = brokerUrlMatch[1].trim();
+
+  return result;
+}
+
+// ── Hämta Hemnet-sida ────────────────────────────────────────────────
+async function fetchHemnetPage(url) {
+  // Rensa UTM-parametrar och normalisera URL
+  const cleanUrl = url.replace(/\?.*$/, '').replace(/[^/]+-(\d+)$/, (_, id) => {
+    return url.includes('hemnet') ? `bostad/-${id}` : url;
+  });
+
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'sv-SE,sv;q=0.9,en;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+  };
+
+  const res = await fetch(url, { headers });
+  if (!res.ok) throw new Error(`HTTP ${res.status} vid hämtning av ${url}`);
+  return await res.text();
+}
+
+// ── Cloud Function: Berika annons ────────────────────────────────────
+exports.enrichListing = functions
+  .runWith({ timeoutSeconds: 60, memory: '256MB' })
+  .firestore.document('listings/{listingId}')
+  .onCreate(async (snap, context) => {
+    const listing = snap.data();
+    const listingId = context.params.listingId;
+
+    // Hoppa över om det inte finns en URL att hämta
+    if (!listing.url) {
+      console.log(`Annons ${listingId}: ingen URL, hoppar över berikande.`);
+      return;
+    }
+
+    // Hoppa över om redan berikad
+    if (listing.enriched) {
+      console.log(`Annons ${listingId}: redan berikad.`);
+      return;
+    }
+
+    console.log(`Berikare ${listingId}: hämtar ${listing.url}`);
+
+    try {
+      // Kort fördröjning för att undvika bot-detektering
+      await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
+
+      const html = await fetchHemnetPage(listing.url);
+      const enriched = parseHemnetPage(html);
+
+      // Uppdatera Firestore med berikad data
+      await snap.ref.update({
+        ...enriched,
+        enriched: true,
+        enrichedAt: Date.now(),
+      });
+
+      const fieldsFound = Object.keys(enriched).filter(k => enriched[k] !== null && enriched[k] !== undefined).length;
+      console.log(`Annons ${listingId}: berikad med ${fieldsFound} nya fält.`);
+
+    } catch (err) {
+      console.error(`Annons ${listingId}: fel vid berikande: ${err.message}`);
+      // Markera som försökt men ej lyckad — försök inte om igen automatiskt
+      await snap.ref.update({
+        enriched: false,
+        enrichError: err.message,
+        enrichedAt: Date.now(),
+      }).catch(() => {});
+    }
+  });
