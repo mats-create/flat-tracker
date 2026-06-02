@@ -433,8 +433,7 @@ function IoFlyout({ household, open, onClose }) {
               <div style={{ fontSize: 12, color: 'var(--text-hint)' }}>AI-assistent</div>
             </div>
           </div>
-          <button className="top-bar__action" style={{ color: 'var(--text-secondary)' }}
-            onClick={onClose}>✕</button>
+          <button className="io-flyout__close" onClick={onClose}>✕</button>
         </div>
 
         {/* Meddelanden */}
