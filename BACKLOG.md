@@ -4,6 +4,23 @@
 
 ---
 
+## 🎯 Fastställd prioriteringsordning
+
+> Fastställd session 5. Omprioriteras vid behov när nya insikter eller blockers uppstår.
+
+| Prioritet | Sprint | Motivering |
+|---|---|---|
+| 1 | Sprint 8 — enrichListing | Fundamentet för allt beslutsstöd — utan fullständig annonsdata är Io-analysen tunn |
+| 2 | Io-systemprompt | Minimal teknisk insats, omedelbar kvalitetsförbättring på varje interaktion |
+| 3 | Sprint 11 — Områden och gator | Kärnfunktionalitet som skiljer appen från Hemnet — gaturegistret är redan klart |
+| 4 | Sprint 10 — Annonsvy | Detaljsida med bildgalleri och statusspårning — kräver Sprint 8 |
+| 5 | Sprint 9 — Io bildanalys | Starkt beslutsstöd — kräver Sprint 8 och 10 |
+| 6 | Sprint 13 — Notiser | Realtidsnotiser är kärnvärdet i bevakning — kräver stabil grund |
+| 7 | Sprint 12 — Kartvy | Snygg men inte nödvändig när gaturegistret fungerar textuellt |
+| 8 | Sprint 14–16 | Fördjupning: chatthistorik, BRF-data, statistik |
+
+---
+
 ## ✅ Slutförda sprints
 
 ### Sprint 1 — Projektscaffold
