@@ -360,7 +360,7 @@ html, body {
   .app-body {
     flex: 1;
     min-width: 0;
-    height: 100%;
+    min-height: 0;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -869,11 +869,7 @@ html, body {
 .io-fab--active { background: var(--primary-dark); }
 
 @media (min-width: 768px) {
-  .io-fab {
-    position: absolute;
-    bottom: 24px;
-    right: 24px;
-  }
+  .io-fab { display: none; }
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -904,6 +900,11 @@ html, body {
     min-height: 0;
     overflow-y: auto;
   }
+  /* Visa scrollist på desktop */
+  .feed-screen::-webkit-scrollbar { display: block; width: 6px; }
+  .feed-screen::-webkit-scrollbar-track { background: transparent; }
+  .feed-screen::-webkit-scrollbar-thumb { background: var(--divider); border-radius: 3px; }
+  .feed-screen::-webkit-scrollbar-thumb:hover { background: var(--text-hint); }
 }
 
 .feed-statusbar {
