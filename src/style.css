@@ -386,7 +386,6 @@ html, body {
   }
 
   .bottom-nav { display: none; }
-  .io-fab     { display: none; }
 
   .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .card-grid .card { margin-bottom: 0; }
@@ -869,7 +868,16 @@ html, body {
 .io-fab--active { background: var(--primary-dark); }
 
 @media (min-width: 768px) {
-  .io-fab { display: none; }
+  .io-fab {
+    display: flex;
+    bottom: 24px;
+    right: 24px;
+    transition: right 220ms ease, transform var(--transition), background var(--transition);
+  }
+  /* När Io-panelen är öppen, förskjut FAB åt vänster om panelen */
+  .io-open .io-fab {
+    right: calc(360px + 16px);
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════

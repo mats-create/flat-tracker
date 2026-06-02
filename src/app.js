@@ -109,7 +109,7 @@ function App() {
   const badge = { feed: newCount };
 
   return (
-    <>
+    <div className={showIo ? 'io-open' : ''} style={{ display: 'contents' }}>
       {/* ── Desktop sidebar ────────────────────────────────────────── */}
       <aside className={`sidebar ${sidebarCollapsed ? 'sidebar--collapsed' : ''}`}>
         <div className="sidebar__brand">
@@ -140,17 +140,7 @@ function App() {
             </button>
           ))}
 
-          {/* Io i sidebaren */}
-          <button
-            className={`sidebar__item ${showIo ? 'active' : ''}`}
-            onClick={() => setShowIo(v => !v)}
-            title="Io — AI"
-          >
-            <span className="sidebar__item-icon">
-              <span style={{ fontWeight: 700, fontSize: 14 }}>Io</span>
-            </span>
-            <span className="sidebar__item-label">Io — AI</span>
-          </button>
+
         </nav>
 
         <div className="sidebar__footer">
@@ -197,7 +187,7 @@ function App() {
           onSignOut={handleSignOut}
         />
       )}
-    </>
+    </div>
   );
 }
 
