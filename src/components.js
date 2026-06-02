@@ -1,5 +1,56 @@
 // components.js — delade UI-komponenter för Flat Tracker
 
+// ── Markdown-renderer (fetstil, kursiv, punktlistor) ─────────────────
+function renderMarkdown(text) {
+  if (!text) return null;
+
+  const lines = text.split('\n');
+  const elements = [];
+  let listItems = [];
+  let key = 0;
+
+  function flushList() {
+    if (listItems.length === 0) return;
+    elements.push(
+      <ul key={key++} style={{ paddingLeft: 18, margin: '4px 0' }}>
+        {listItems.map((item, i) => <li key={i}>{inlineFormat(item)}</li>)}
+      </ul>
+    );
+    listItems = [];
+  }
+
+  function inlineFormat(str) {
+    // Dela upp strängen på **bold** och *italic*-markeringar
+    const parts = [];
+    const regex = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
+    let last = 0, m;
+    while ((m = regex.exec(str)) !== null) {
+      if (m.index > last) parts.push(str.slice(last, m.index));
+      if (m[2]) parts.push(<strong key={m.index}>{m[2]}</strong>);
+      else if (m[3]) parts.push(<em key={m.index}>{m[3]}</em>);
+      last = m.index + m[0].length;
+    }
+    if (last < str.length) parts.push(str.slice(last));
+    return parts.length === 1 && typeof parts[0] === 'string' ? parts[0] : parts;
+  }
+
+  for (const line of lines) {
+    const listMatch = line.match(/^[\-\*]\s+(.+)/);
+    if (listMatch) {
+      listItems.push(listMatch[1]);
+      continue;
+    }
+    flushList();
+    if (line.trim() === '') {
+      elements.push(<br key={key++} />);
+    } else {
+      elements.push(<p key={key++} style={{ margin: '2px 0' }}>{inlineFormat(line)}</p>);
+    }
+  }
+  flushList();
+  return <>{elements}</>;
+}
+
 // ── Logotyp SVG ──────────────────────────────────────────────────────
 function Logo({ size = 64 }) {
   const scale = size / 130;
@@ -433,14 +484,15 @@ function IoFlyout({ household, open, onClose }) {
               <div style={{ fontSize: 12, color: 'var(--text-hint)' }}>AI-assistent</div>
             </div>
           </div>
-          <button className="io-flyout__close" onClick={onClose}>✕</button>
+          <button className="top-bar__action" style={{ color: 'var(--text-secondary)' }}
+            onClick={onClose}>✕</button>
         </div>
 
         {/* Meddelanden */}
         <div className="io-flyout__messages" ref={bottomRef}>
           {messages.map(m => (
             <div key={m.id} className={`chat-bubble chat-bubble--${m.role === 'io' ? 'hunter' : 'user'}`}>
-              {m.text}
+              {m.role === 'io' ? renderMarkdown(m.text) : m.text}
             </div>
           ))}
           {loading && (

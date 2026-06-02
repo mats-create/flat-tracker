@@ -177,7 +177,7 @@ function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatc
             </div>
           )}
           {analysisErr && <div className="listing-card__analysis-error">{analysisErr}</div>}
-          {analysis && <div className="listing-card__analysis-text">{analysis}</div>}
+          {analysis && <div className="listing-card__analysis-text">{renderMarkdown(analysis)}</div>}
         </div>
       )}
     </div>

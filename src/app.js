@@ -10,6 +10,7 @@ function App() {
   const [tab, setTab]                   = useState('feed');
   const [showSettings, setShowSettings] = useState(false);
   const [showIo, setShowIo]             = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [newCount]                      = useState(0);
 
   // ── Auth-lyssnare ──────────────────────────────────────────────────
@@ -110,10 +111,17 @@ function App() {
   return (
     <>
       {/* ── Desktop sidebar ────────────────────────────────────────── */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${sidebarCollapsed ? 'sidebar--collapsed' : ''}`}>
         <div className="sidebar__brand">
           <Logo size={32} />
           <span className="sidebar__brand-name">Flat Tracker</span>
+          <button
+            className="sidebar__collapse-btn"
+            onClick={() => setSidebarCollapsed(v => !v)}
+            title={sidebarCollapsed ? 'Expandera meny' : 'Minimera meny'}
+          >
+            {sidebarCollapsed ? '→' : '←'}
+          </button>
         </div>
 
         <nav className="sidebar__nav">
@@ -122,6 +130,7 @@ function App() {
               key={t.id}
               className={`sidebar__item ${tab === t.id ? 'active' : ''}`}
               onClick={() => setTab(t.id)}
+              title={t.label}
             >
               <span className="sidebar__item-icon">{t.icon}</span>
               <span className="sidebar__item-label">{t.label}</span>
@@ -135,6 +144,7 @@ function App() {
           <button
             className={`sidebar__item ${showIo ? 'active' : ''}`}
             onClick={() => setShowIo(v => !v)}
+            title="Io — AI"
           >
             <span className="sidebar__item-icon">
               <span style={{ fontWeight: 700, fontSize: 14 }}>Io</span>
@@ -148,13 +158,13 @@ function App() {
             <div className="sidebar__avatar">
               {user?.displayName?.[0]?.toUpperCase() || '?'}
             </div>
-            <div style={{ flex: 1, textAlign: 'left' }}>
+            <div className="sidebar__settings-text">
               <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
                 {user?.displayName}
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-hint)' }}>Inställningar</div>
             </div>
-            <span style={{ fontSize: 16 }}>⚙️</span>
+            <span className="sidebar__settings-gear" style={{ fontSize: 16 }}>⚙️</span>
           </button>
         </div>
       </aside>
@@ -167,11 +177,11 @@ function App() {
         />
         {visaSkärm()}
         <BottomNav active={tab} onChange={t => { setTab(t); setShowIo(false); }} badge={badge} />
-        {/* Io FAB — följer med app-body på desktop */}
+        {/* Io FAB — bara på mobil (dold på desktop via CSS) */}
         <IoButton onClick={() => setShowIo(v => !v)} active={showIo} />
       </div>
 
-      {/* ── Io Flyout — rotnivå så den skjuter in layouten ─────────── */}
+      {/* ── Io Flyout — flex-sibling, skjuter in layouten på desktop ── */}
       <IoFlyout
         household={household}
         open={showIo}
