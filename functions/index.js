@@ -15,11 +15,10 @@ const GMAIL_USER = 'mats@hultgrensaksi.com';
 
 function getGmailClient(credentialsJson) {
   const credentials = JSON.parse(credentialsJson);
-  const auth = new google.auth.JWT({
-    email: credentials.client_email,
-    key: credentials.private_key,
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    clientOptions: { subject: GMAIL_USER },
     scopes: ['https://www.googleapis.com/auth/gmail.modify'],
-    subject: GMAIL_USER,
   });
   return google.gmail({ version: 'v1', auth });
 }
@@ -32,7 +31,7 @@ async function getFlatTrackerLabelId(gmail) {
 
 function extractPlainText(payload) {
   if (!payload) return '';
-  if (payload.mimeType === 'text/plain' && payload.body?.data) {
+  if (payload.mimeType === 'text/plain' && payload.body && payload.body.data) {
     return Buffer.from(payload.body.data, 'base64').toString('utf-8');
   }
   if (payload.parts) {
@@ -45,34 +44,7 @@ function extractPlainText(payload) {
 }
 
 async function extractListingsWithClaude(mailText, anthropicKey) {
-  const prompt = `Analysera det här bevakningsmaiet från Hemnet eller Booli och extrahera alla lägenhetsannonser.
-
-Returnera ENBART ett JSON-objekt, ingen annan text:
-{
-  "listings": [
-    {
-      "source": "hemnet" eller "booli",
-      "externalId": "ID från URL:en",
-      "url": "direktlänk till annonsen",
-      "title": "gatuadress",
-      "street": "gatuadress",
-      "area": "stadsdel",
-      "city": "stad",
-      "price": pristal i kronor,
-      "sqm": kvadratmeter,
-      "rooms": antal rum,
-      "monthlyFee": månadsavgift i kronor (0 om okänt),
-      "hasBalcony": true/false,
-      "hasElevator": true/false,
-      "isNewConstruction": true/false,
-      "imageUrl": "bild-URL om tillgänglig",
-      "publishedAt": "ISO-datum om känt"
-    }
-  ]
-}
-
-Mailinnehåll:
-${mailText.substring(0, 8000)}`;
+  const prompt = 'Analysera det har bevakningsmaiet fran Hemnet eller Booli och extrahera alla lagenhetsannonser.\n\nReturnera ENBART ett JSON-objekt, ingen annan text:\n{\n  "listings": [\n    {\n      "source": "hemnet" eller "booli",\n      "externalId": "ID fran URL:en",\n      "url": "direktlank till annonsen",\n      "title": "gatuadress",\n      "street": "gatuadress",\n      "area": "stadsdel",\n      "city": "stad",\n      "price": pristal i kronor,\n      "sqm": kvadratmeter,\n      "rooms": antal rum,\n      "monthlyFee": manadsavgift i kronor (0 om okant),\n      "hasBalcony": true/false,\n      "hasElevator": true/false,\n      "isNewConstruction": true/false,\n      "imageUrl": "bild-URL om tillganglig",\n      "publishedAt": "ISO-datum om kant",\n      "agentName": "maklarens namn om tillgangligt, annars null",\n      "agencyName": "maklarfirmans namn om tillgangligt, annars null"\n    }\n  ]\n}\n\nMailinnehall:\n' + mailText.substring(0, 8000);
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -84,14 +56,14 @@ ${mailText.substring(0, 8000)}`;
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 2000,
-      system: 'Du är en dataextraktor. Returnera ALLTID och ENBART giltig JSON.',
+      system: 'Du ar en dataextraktor. Returnera ALLTID och ENBART giltig JSON.',
       messages: [{ role: 'user', content: prompt }],
     }),
   });
 
-  if (!res.ok) throw new Error(`Claude API-fel: ${res.status}`);
+  if (!res.ok) throw new Error('Claude API-fel: ' + res.status);
   const data = await res.json();
-  const text = data.content?.find(b => b.type === 'text')?.text || '{}';
+  const text = (data.content && data.content.find(b => b.type === 'text') || {}).text || '{}';
   const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   return JSON.parse(clean);
 }
@@ -115,7 +87,7 @@ async function saveListings(listings) {
   let savedCount = 0;
   for (const listing of listings) {
     if (!listing.externalId || !listing.source) continue;
-    const docId = `${listing.source}_${listing.externalId}`;
+    const docId = listing.source + '_' + listing.externalId;
     const ref = db.collection('listings').doc(docId);
     const existing = await ref.get();
     if (existing.exists) continue;
@@ -140,9 +112,9 @@ async function saveListings(listings) {
 }
 
 exports.gmailPush = functions
-  .runWith({ timeoutSeconds: 120, memory: '256MB', secrets: ['ANTHROPIC_KEY', 'GMAIL_CREDENTIALS'] })
+  .runWith({ timeoutSeconds: 120, memory: '512MB', secrets: ['ANTHROPIC_KEY', 'GMAIL_CREDENTIALS'] })
   .pubsub.topic('gmail-push')
-  .onPublish(async () => {
+  .onPublish(async function() {
     const gmail = getGmailClient(GMAIL_CREDENTIALS.value());
     const labelId = await getFlatTrackerLabelId(gmail);
     if (!labelId) { console.error('Label saknas.'); return; }
@@ -150,7 +122,7 @@ exports.gmailPush = functions
       userId: 'me', labelIds: [labelId], q: 'is:unread', maxResults: 10,
     });
     const messages = listRes.data.messages || [];
-    if (messages.length === 0) { console.log('Inga olästa mail.'); return; }
+    if (messages.length === 0) { console.log('Inga olasta mail.'); return; }
     for (const msg of messages) {
       try {
         const mailRes = await gmail.users.messages.get({ userId: 'me', id: msg.id, format: 'full' });
@@ -160,22 +132,22 @@ exports.gmailPush = functions
         const listings = result.listings || [];
         if (listings.length > 0) {
           const saved = await saveListings(listings);
-          console.log(`${saved} nya annonser sparade.`);
+          console.log(saved + ' nya annonser sparade.');
         }
         await gmail.users.messages.modify({
           userId: 'me', id: msg.id,
           requestBody: { removeLabelIds: ['UNREAD'] },
         });
       } catch (err) {
-        console.error(`Fel vid mail ${msg.id}:`, err.message);
+        console.error('Fel vid mail ' + msg.id + ': ' + err.message);
       }
     }
   });
 
 exports.renewGmailPush = functions
-  .runWith({ timeoutSeconds: 60, memory: '128MB', secrets: ['GMAIL_CREDENTIALS'] })
+  .runWith({ timeoutSeconds: 60, memory: '256MB', secrets: ['GMAIL_CREDENTIALS'] })
   .pubsub.schedule('every 144 hours')
-  .onRun(async () => {
+  .onRun(async function() {
     const gmail = getGmailClient(GMAIL_CREDENTIALS.value());
     const labelId = await getFlatTrackerLabelId(gmail);
     if (!labelId) return null;
@@ -183,13 +155,13 @@ exports.renewGmailPush = functions
       userId: 'me',
       requestBody: { labelIds: [labelId], topicName: PUBSUB_TOPIC },
     });
-    console.log('Gmail push förnyad.');
+    console.log('Gmail push fornyad.');
     return null;
   });
 
 exports.setupGmailPush = functions
-  .runWith({ timeoutSeconds: 60, memory: '128MB', secrets: ['GMAIL_CREDENTIALS'] })
-  .https.onRequest(async (req, res) => {
+  .runWith({ timeoutSeconds: 60, memory: '256MB', secrets: ['GMAIL_CREDENTIALS'] })
+  .https.onRequest(async function(req, res) {
     try {
       const gmail = getGmailClient(GMAIL_CREDENTIALS.value());
       const labelId = await getFlatTrackerLabelId(gmail);
@@ -201,6 +173,6 @@ exports.setupGmailPush = functions
       res.status(200).send('Gmail push aktiverat.');
     } catch (err) {
       console.error(err);
-      res.status(500).send(`Fel: ${err.message}`);
+      res.status(500).send('Fel: ' + err.message);
     }
   });
