@@ -232,6 +232,7 @@ html, body {
 ══════════════════════════════════════════════════════════════════ */
 @media (min-width: 768px) {
 
+  /* ── Root: horisontell flex-rad — sidebar | app-body | io-panel ── */
   #root {
     flex-direction: row;
     overflow: hidden;
@@ -242,19 +243,30 @@ html, body {
     display: flex;
     flex-direction: column;
     width: var(--sidebar-w);
+    min-width: var(--sidebar-w);
     background: var(--surface);
     border-right: 1px solid var(--divider);
     flex-shrink: 0;
     z-index: 10;
     box-shadow: var(--elev-1);
+    transition: width 200ms ease, min-width 200ms ease;
+    overflow: hidden;
+  }
+
+  /* Kollapsad sidebar — bara ikoner */
+  .sidebar--collapsed {
+    width: 56px;
+    min-width: 56px;
   }
 
   .sidebar__brand {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 20px 20px 16px;
+    padding: 16px 12px;
     border-bottom: 1px solid var(--divider);
+    flex-shrink: 0;
+    min-height: 56px;
   }
 
   .sidebar__brand-name {
@@ -262,7 +274,29 @@ html, body {
     font-weight: 700;
     color: var(--primary);
     letter-spacing: 0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    flex: 1;
+    transition: opacity 150ms ease;
   }
+
+  .sidebar--collapsed .sidebar__brand-name { opacity: 0; pointer-events: none; }
+
+  .sidebar__collapse-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--transition);
+  }
+  .sidebar__collapse-btn:hover { background: var(--surface-2); }
 
   .sidebar__nav {
     flex: 1;
@@ -270,6 +304,7 @@ html, body {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    overflow: hidden;
   }
 
   .sidebar__item {
@@ -288,13 +323,21 @@ html, body {
     position: relative;
     text-align: left;
     width: 100%;
+    white-space: nowrap;
   }
+
+  .sidebar--collapsed .sidebar__item { padding: 12px; justify-content: center; }
 
   .sidebar__item:hover  { background: var(--surface-2); color: var(--text-primary); }
   .sidebar__item.active { background: #E3F0FF; color: var(--primary); }
 
   .sidebar__item-icon  { font-size: 20px; flex-shrink: 0; }
-  .sidebar__item-label { flex: 1; }
+  .sidebar__item-label {
+    flex: 1;
+    overflow: hidden;
+    transition: opacity 150ms ease;
+  }
+  .sidebar--collapsed .sidebar__item-label { opacity: 0; width: 0; pointer-events: none; }
 
   .sidebar__item-badge {
     background: var(--new-badge);
@@ -309,10 +352,12 @@ html, body {
     align-items: center;
     justify-content: center;
   }
+  .sidebar--collapsed .sidebar__item-badge { display: none; }
 
   .sidebar__footer {
-    padding: 16px;
+    padding: 12px 8px;
     border-top: 1px solid var(--divider);
+    flex-shrink: 0;
   }
 
   .sidebar__settings-btn {
@@ -328,9 +373,21 @@ html, body {
     font-size: 14px;
     color: var(--text-secondary);
     transition: background var(--transition);
+    white-space: nowrap;
   }
 
+  .sidebar--collapsed .sidebar__settings-btn { justify-content: center; padding: 10px; }
+
   .sidebar__settings-btn:hover { background: var(--surface-2); }
+
+  .sidebar__settings-text {
+    flex: 1;
+    text-align: left;
+    overflow: hidden;
+    transition: opacity 150ms ease;
+  }
+  .sidebar--collapsed .sidebar__settings-text { opacity: 0; width: 0; pointer-events: none; }
+  .sidebar--collapsed .sidebar__settings-gear { display: none; }
 
   .sidebar__avatar {
     width: 32px;
@@ -346,13 +403,13 @@ html, body {
     flex-shrink: 0;
   }
 
-  /* ── Main content area ─────────────────────────────────────────── */
+  /* ── App-body: tar resterande bredd, scrollar internt ──────────── */
   .app-body {
     flex: 1;
+    min-width: 0;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    position: relative;
   }
 
   /* ── Top bar på desktop ────────────────────────────────────────── */
@@ -361,6 +418,7 @@ html, body {
     color: var(--text-primary);
     border-bottom: 1px solid var(--divider);
     box-shadow: none;
+    flex-shrink: 0;
   }
 
   .top-bar__title {
@@ -369,17 +427,14 @@ html, body {
     color: var(--text-primary);
   }
 
-  .top-bar__action {
-    color: var(--text-secondary);
-  }
-
-  .top-bar__action:hover { background: var(--surface-2); }
-
   /* ── Dölj kugghjul i toppraden på desktop (finns i sidebar) ───── */
   .top-bar__action { display: none; }
 
   /* ── Screen på desktop ─────────────────────────────────────────── */
   .screen {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
     padding: 24px 32px;
     padding-bottom: 24px;
     max-width: 900px;
@@ -387,6 +442,9 @@ html, body {
 
   /* ── Dölj bottom nav på desktop ────────────────────────────────── */
   .bottom-nav { display: none; }
+
+  /* ── Io FAB dold på desktop (knappen finns i sidebar) ─────────── */
+  .io-fab { display: none; }
 
   /* ── Två kolumner för kort på desktop ──────────────────────────── */
   .card-grid {
@@ -396,6 +454,32 @@ html, body {
   }
 
   .card-grid .card { margin-bottom: 0; }
+
+  /* ── Io-panel: flex-sibling som skjuter in layouten ───────────── */
+  .io-flyout {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    width: 0;
+    height: auto;
+    border-radius: 0;
+    border-left: none;
+    transform: none;
+    transition: width 220ms ease;
+    overflow: hidden;
+    flex-shrink: 0;
+    pointer-events: none;
+  }
+
+  .io-flyout--open {
+    width: 360px;
+    border-left: 1px solid var(--divider);
+    box-shadow: var(--elev-2);
+    pointer-events: all;
+    transform: none;
+  }
 }
 
 @media (min-width: 1200px) {
@@ -783,52 +867,6 @@ html, body {
   pointer-events: all;
 }
 
-/* Desktop: panel från höger som overlay */
-@media (min-width: 768px) {
-  .io-overlay { display: none; }
-
-  .io-flyout {
-    top: 0;
-    left: auto;
-    right: 0;
-    bottom: 0;
-    width: 360px;
-    height: 100%;
-    border-radius: 0;
-    border-left: 1px solid var(--divider);
-    transform: translateX(100%);
-    transition: transform 220ms ease;
-    pointer-events: none;
-  }
-
-  .io-flyout--open {
-    transform: translateX(0);
-    pointer-events: all;
-    box-shadow: var(--elev-3);
-  }
-}
-
-/* ── Io flyout stängknapp ─────────────────────────────────────────── */
-.io-flyout__close {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  padding: 8px;
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--transition);
-}
-.io-flyout__close:hover { background: var(--surface-2); }
-
-@keyframes slideInRight {
-  from { transform: translateX(100%); }
-  to   { transform: translateX(0); }
-}
-
 .io-flyout__header {
   display: flex;
   align-items: center;
@@ -921,6 +959,8 @@ html, body {
     padding: 24px 32px;
     padding-bottom: 24px;
     max-width: 900px;
+    flex: 1;
+    min-height: 0;
   }
 }
 
@@ -1427,6 +1467,57 @@ function generateInviteCode() {
 /* ---- src/components.js ---- */
 // components.js — delade UI-komponenter för Flat Tracker
 
+// ── Markdown-renderer (fetstil, kursiv, punktlistor) ─────────────────
+function renderMarkdown(text) {
+  if (!text) return null;
+
+  const lines = text.split('\n');
+  const elements = [];
+  let listItems = [];
+  let key = 0;
+
+  function flushList() {
+    if (listItems.length === 0) return;
+    elements.push(
+      <ul key={key++} style={{ paddingLeft: 18, margin: '4px 0' }}>
+        {listItems.map((item, i) => <li key={i}>{inlineFormat(item)}</li>)}
+      </ul>
+    );
+    listItems = [];
+  }
+
+  function inlineFormat(str) {
+    // Dela upp strängen på **bold** och *italic*-markeringar
+    const parts = [];
+    const regex = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
+    let last = 0, m;
+    while ((m = regex.exec(str)) !== null) {
+      if (m.index > last) parts.push(str.slice(last, m.index));
+      if (m[2]) parts.push(<strong key={m.index}>{m[2]}</strong>);
+      else if (m[3]) parts.push(<em key={m.index}>{m[3]}</em>);
+      last = m.index + m[0].length;
+    }
+    if (last < str.length) parts.push(str.slice(last));
+    return parts.length === 1 && typeof parts[0] === 'string' ? parts[0] : parts;
+  }
+
+  for (const line of lines) {
+    const listMatch = line.match(/^[\-\*]\s+(.+)/);
+    if (listMatch) {
+      listItems.push(listMatch[1]);
+      continue;
+    }
+    flushList();
+    if (line.trim() === '') {
+      elements.push(<br key={key++} />);
+    } else {
+      elements.push(<p key={key++} style={{ margin: '2px 0' }}>{inlineFormat(line)}</p>);
+    }
+  }
+  flushList();
+  return <>{elements}</>;
+}
+
 // ── Logotyp SVG ──────────────────────────────────────────────────────
 function Logo({ size = 64 }) {
   const scale = size / 130;
@@ -1860,14 +1951,15 @@ function IoFlyout({ household, open, onClose }) {
               <div style={{ fontSize: 12, color: 'var(--text-hint)' }}>AI-assistent</div>
             </div>
           </div>
-          <button className="io-flyout__close" onClick={onClose}>✕</button>
+          <button className="top-bar__action" style={{ color: 'var(--text-secondary)' }}
+            onClick={onClose}>✕</button>
         </div>
 
         {/* Meddelanden */}
         <div className="io-flyout__messages" ref={bottomRef}>
           {messages.map(m => (
             <div key={m.id} className={`chat-bubble chat-bubble--${m.role === 'io' ? 'hunter' : 'user'}`}>
-              {m.text}
+              {m.role === 'io' ? renderMarkdown(m.text) : m.text}
             </div>
           ))}
           {loading && (
@@ -2295,7 +2387,7 @@ function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatc
             </div>
           )}
           {analysisErr && <div className="listing-card__analysis-error">{analysisErr}</div>}
-          {analysis && <div className="listing-card__analysis-text">{analysis}</div>}
+          {analysis && <div className="listing-card__analysis-text">{renderMarkdown(analysis)}</div>}
         </div>
       )}
     </div>
@@ -2568,6 +2660,7 @@ function App() {
   const [tab, setTab]                   = useState('feed');
   const [showSettings, setShowSettings] = useState(false);
   const [showIo, setShowIo]             = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [newCount]                      = useState(0);
 
   // ── Auth-lyssnare ──────────────────────────────────────────────────
@@ -2668,10 +2761,17 @@ function App() {
   return (
     <>
       {/* ── Desktop sidebar ────────────────────────────────────────── */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${sidebarCollapsed ? 'sidebar--collapsed' : ''}`}>
         <div className="sidebar__brand">
           <Logo size={32} />
           <span className="sidebar__brand-name">Flat Tracker</span>
+          <button
+            className="sidebar__collapse-btn"
+            onClick={() => setSidebarCollapsed(v => !v)}
+            title={sidebarCollapsed ? 'Expandera meny' : 'Minimera meny'}
+          >
+            {sidebarCollapsed ? '→' : '←'}
+          </button>
         </div>
 
         <nav className="sidebar__nav">
@@ -2680,6 +2780,7 @@ function App() {
               key={t.id}
               className={`sidebar__item ${tab === t.id ? 'active' : ''}`}
               onClick={() => setTab(t.id)}
+              title={t.label}
             >
               <span className="sidebar__item-icon">{t.icon}</span>
               <span className="sidebar__item-label">{t.label}</span>
@@ -2693,6 +2794,7 @@ function App() {
           <button
             className={`sidebar__item ${showIo ? 'active' : ''}`}
             onClick={() => setShowIo(v => !v)}
+            title="Io — AI"
           >
             <span className="sidebar__item-icon">
               <span style={{ fontWeight: 700, fontSize: 14 }}>Io</span>
@@ -2706,13 +2808,13 @@ function App() {
             <div className="sidebar__avatar">
               {user?.displayName?.[0]?.toUpperCase() || '?'}
             </div>
-            <div style={{ flex: 1, textAlign: 'left' }}>
+            <div className="sidebar__settings-text">
               <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
                 {user?.displayName}
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-hint)' }}>Inställningar</div>
             </div>
-            <span style={{ fontSize: 16 }}>⚙️</span>
+            <span className="sidebar__settings-gear" style={{ fontSize: 16 }}>⚙️</span>
           </button>
         </div>
       </aside>
@@ -2725,11 +2827,11 @@ function App() {
         />
         {visaSkärm()}
         <BottomNav active={tab} onChange={t => { setTab(t); setShowIo(false); }} badge={badge} />
-        {/* Io FAB — följer med app-body på desktop */}
+        {/* Io FAB — bara på mobil (dold på desktop via CSS) */}
         <IoButton onClick={() => setShowIo(v => !v)} active={showIo} />
       </div>
 
-      {/* ── Io Flyout — rotnivå så den skjuter in layouten ─────────── */}
+      {/* ── Io Flyout — flex-sibling, skjuter in layouten på desktop ── */}
       <IoFlyout
         household={household}
         open={showIo}
