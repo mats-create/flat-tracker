@@ -402,8 +402,17 @@ function IoFlyout({ household, open, onClose }) {
   ]);
   const [input, setInput]     = React.useState('');
   const [loading, setLoading] = React.useState(false);
+  const [isDesktop, setIsDesktop] = React.useState(window.matchMedia('(min-width: 768px)').matches);
   const bottomRef = React.useRef(null);
   const apiKey    = household?.anthropicKey || '';
+
+  // Lyssna på skärmstorleksändringar
+  React.useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const handler = e => setIsDesktop(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -451,14 +460,14 @@ function IoFlyout({ household, open, onClose }) {
         if (res.status === 401) throw new Error('API-nyckeln är ogiltig eller saknas.');
         if (res.status === 403) throw new Error('API-nyckeln saknar behörighet eller fakturering är inte aktiverad.');
         if (res.status === 429) throw new Error('För många förfrågningar, försök igen om en stund.');
-        throw new Error(`API-fel ${res.status}`);
+        throw new Error('API-fel ' + res.status);
       }
       const reply = data.content?.[0]?.text || 'Tyvärr kunde jag inte hämta ett svar.';
       setMessages(prev => [...prev, { id: localId(), role: 'io', text: reply }]);
     } catch (err) {
       setMessages(prev => [...prev, {
         id: localId(), role: 'io',
-        text: `Fel: ${err.message}`,
+        text: 'Fel: ' + err.message,
       }]);
     } finally {
       setLoading(false);
@@ -469,56 +478,58 @@ function IoFlyout({ household, open, onClose }) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   }
 
+  const chatContent = (
+    <>
+      <div className="io-flyout__header">
+        <div className="flex gap-8" style={{ alignItems: 'center' }}>
+          <div className="io-flyout__avatar">Io</div>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>Io</div>
+            <div style={{ fontSize: 12, color: 'var(--text-hint)' }}>AI-assistent</div>
+          </div>
+        </div>
+        <button className="io-flyout__close" onClick={onClose}>✕</button>
+      </div>
+      <div className="io-flyout__messages">
+        {messages.map(m => (
+          <div key={m.id} className={'chat-bubble chat-bubble--' + (m.role === 'io' ? 'hunter' : 'user')}>
+            {m.role === 'io' ? renderMarkdown(m.text) : m.text}
+          </div>
+        ))}
+        {loading && <div className="chat-bubble chat-bubble--hunter text-muted">Tänker…</div>}
+        <div ref={bottomRef} />
+      </div>
+      <div className="chat-input-row">
+        <textarea
+          className="chat-input"
+          rows={1}
+          placeholder="Fråga Io något…"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={handleKey}
+        />
+        <button className="chat-send" onClick={sendMessage} disabled={!input.trim() || loading}>➤</button>
+      </div>
+    </>
+  );
+
+  // Desktop: renderas som flex-sibling i #root, skjuter in layouten
+  if (isDesktop) {
+    if (!open) return null;
+    return <div className="io-panel-desktop">{chatContent}</div>;
+  }
+
+  // Mobil: bottom sheet
   return (
     <>
-      {/* Overlay — bara på mobil */}
       {open && <div className="io-overlay" onClick={onClose} />}
-
-      <div className={`io-flyout ${open ? 'io-flyout--open' : ''}`}>
-        {/* Header */}
-        <div className="io-flyout__header">
-          <div className="flex gap-8" style={{ alignItems: 'center' }}>
-            <div className="io-flyout__avatar">Io</div>
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 15 }}>Io</div>
-              <div style={{ fontSize: 12, color: 'var(--text-hint)' }}>AI-assistent</div>
-            </div>
-          </div>
-          <button className="top-bar__action" style={{ color: 'var(--text-secondary)' }}
-            onClick={onClose}>✕</button>
-        </div>
-
-        {/* Meddelanden */}
-        <div className="io-flyout__messages" ref={bottomRef}>
-          {messages.map(m => (
-            <div key={m.id} className={`chat-bubble chat-bubble--${m.role === 'io' ? 'hunter' : 'user'}`}>
-              {m.role === 'io' ? renderMarkdown(m.text) : m.text}
-            </div>
-          ))}
-          {loading && (
-            <div className="chat-bubble chat-bubble--hunter text-muted">Tänker…</div>
-          )}
-          <div ref={bottomRef} />
-        </div>
-
-        {/* Inmatning */}
-        <div className="chat-input-row">
-          <textarea
-            className="chat-input"
-            rows={1}
-            placeholder="Fråga Io något…"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKey}
-          />
-          <button className="chat-send" onClick={sendMessage} disabled={!input.trim() || loading}>
-            ➤
-          </button>
-        </div>
+      <div className={'io-flyout' + (open ? ' io-flyout--open' : '')}>
+        {chatContent}
       </div>
     </>
   );
 }
+
 
 // ── IoButton — flytande knapp för att öppna Io ───────────────────────
 function IoButton({ onClick, active }) {

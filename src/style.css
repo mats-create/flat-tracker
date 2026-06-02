@@ -360,6 +360,7 @@ html, body {
   .app-body {
     flex: 1;
     min-width: 0;
+    height: 100%;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -391,34 +392,17 @@ html, body {
   .card-grid .card { margin-bottom: 0; }
 
   /* ════════════════════════════════════════════════════════════════
-     IO-PANEL — flex-sibling som skjuter in layouten
+     IO-PANEL DESKTOP — renderas som flex-sibling i #root
   ════════════════════════════════════════════════════════════════ */
-  .io-flyout {
-    /* Åsidosätt mobil position:fixed */
-    position: relative;
-    bottom: auto;
-    left: auto;
-    right: auto;
-    top: auto;
-    height: auto;
-    border-radius: 0;
-    transform: none;
-    /* Stängd: nollbredd, inget innehåll syns */
-    width: 0;
-    flex-shrink: 0;
-    overflow: hidden;
-    transition: width 220ms ease;
-    pointer-events: none;
-    background: var(--surface);
-  }
-
-  .io-flyout--open {
+  .io-panel-desktop {
     width: 360px;
+    flex-shrink: 0;
     border-left: 1px solid var(--divider);
     box-shadow: var(--elev-2);
-    pointer-events: all;
+    background: var(--surface);
     display: flex;
     flex-direction: column;
+    height: 100%;
     overflow: hidden;
   }
 }
@@ -842,6 +826,23 @@ html, body {
 }
 
 .io-flyout__messages::-webkit-scrollbar { display: none; }
+
+/* ── Io stängknapp ───────────────────────────────────────────────── */
+.io-flyout__close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition);
+}
+.io-flyout__close:hover { background: var(--surface-2); }
 
 /* ── IO FAB (flytande knapp) ─────────────────────────────────────── */
 .io-fab {
