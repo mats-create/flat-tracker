@@ -45,7 +45,40 @@ function extractPlainText(payload) {
 }
 
 async function extractListingsWithClaude(mailText, anthropicKey) {
-  const prompt = 'Analysera det har bevakningsmaiet fran Hemnet eller Booli och extrahera alla lagenhetsannonser.\n\nReturnera ENBART ett JSON-objekt, ingen annan text:\n{\n  "listings": [\n    {\n      "source": "hemnet" eller "booli",\n      "externalId": "ID fran URL:en",\n      "url": "direktlank till annonsen",\n      "title": "gatuadress",\n      "street": "gatuadress",\n      "area": "stadsdel",\n      "city": "stad",\n      "price": pristal i kronor,\n      "sqm": kvadratmeter,\n      "rooms": antal rum,\n      "monthlyFee": manadsavgift i kronor (0 om okant),\n      "hasBalcony": true/false,\n      "hasElevator": true/false,\n      "isNewConstruction": true/false,\n      "imageUrl": "bild-URL om tillganglig",\n      "publishedAt": "ISO-datum om kant",\n      "agentName": "maklarens namn om tillgangligt, annars null",\n      "agencyName": "maklarfirmans namn om tillgangligt, annars null"\n    }\n  ]\n}\n\nMailinnehall:\n' + mailText.substring(0, 8000);
+  const prompt = `Analysera detta bevakningsmail från Hemnet, Booli eller Boneo och extrahera alla lägenhetsannonser.
+
+Kända URL-mönster:
+- Hemnet: hemnet.se/bostad/... → source: "hemnet"
+- Booli: booli.se/bostad/... → source: "booli"
+- Boneo: boneo.se/... → source: "boneo"
+
+Returnera ENBART ett JSON-objekt, ingen annan text:
+{
+  "listings": [
+    {
+      "source": "hemnet", "booli" eller "boneo",
+      "externalId": "ID från URL:en",
+      "url": "direktlänk till annonsen",
+      "street": "gatuadress",
+      "area": "stadsdel",
+      "city": "stad",
+      "price": pristal i kronor eller null,
+      "sqm": kvadratmeter eller null,
+      "rooms": antal rum eller null,
+      "monthlyFee": månadsavgift i kronor eller null,
+      "hasBalcony": true/false/null,
+      "hasElevator": true/false/null,
+      "isNewConstruction": true/false/null,
+      "imageUrl": "bild-URL eller null",
+      "publishedAt": "ISO-datum eller null",
+      "agentName": "mäklarens namn eller null",
+      "agencyName": "mäklarfirmans namn eller null"
+    }
+  ]
+}
+
+Mailinnehåll:
+` + mailText.substring(0, 8000);
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -178,127 +211,138 @@ exports.setupGmailPush = functions
     }
   });
 
-// enrichListing — Cloud Function som hämtar fullständig annonsdata från Hemnet/Booli
-// Triggas automatiskt när en ny annons skapas i Firestore listings/
+// ════════════════════════════════════════════════════════════════════
+// enrichListing — berika annons med fullständig data från källsajten
+// Triggas automatiskt vid ny annons i Firestore listings/
+// Strategi: försök __NEXT_DATA__ JSON → fallback Claude-extraktion
+// ════════════════════════════════════════════════════════════════════
 
-// db är redan definierad i index.js
+const FETCH_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'sv-SE,sv;q=0.9,en;q=0.8',
+  'Cache-Control': 'no-cache',
+};
 
-// ── Hemnet HTML-parser ───────────────────────────────────────────────
-function parseHemnetPage(html) {
-  const result = {};
-
-  // Beskrivningstext
-  const descMatch = html.match(/class="[^"]*description[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
-  if (descMatch) {
-    result.description = descMatch[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-  }
-
-  // Alla bilder
-  const imageUrls = [];
-  const imgRegex = /https:\/\/bilder\.hemnet\.se\/images\/[^"'\s]+/g;
-  const imgMatches = html.match(imgRegex);
-  if (imgMatches) {
-    const unique = [...new Set(imgMatches.filter(u => !u.includes('_cut')))];
-    imageUrls.push(...unique.slice(0, 20));
-  }
-  result.imageUrls = imageUrls;
-
-  // Mäklarfirma
-  const agencyMatch = html.match(/"broker_agency_name"\s*:\s*"([^"]+)"/i) ||
-    html.match(/class="[^"]*broker[^"]*agency[^"]*"[^>]*>([^<]+)</) ||
-    html.match(/<span[^>]*class="[^"]*agency[^"]*"[^>]*>([^<]+)<\/span>/i);
-  if (agencyMatch) result.agencyName = agencyMatch[1].trim();
-
-  // Mäklare namn
-  const agentMatch = html.match(/"broker_name"\s*:\s*"([^"]+)"/i) ||
-    html.match(/class="[^"]*broker[^"]*name[^"]*"[^>]*>([^<]+)</) ||
-    html.match(/"agent"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"/i);
-  if (agentMatch) result.agentName = agentMatch[1].trim();
-
-  // Mäklare telefon
-  const phoneMatch = html.match(/"broker_phone_number"\s*:\s*"([^"]+)"/i) ||
-    html.match(/href="tel:([^"]+)"/i);
-  if (phoneMatch) result.agentPhone = phoneMatch[1].trim();
-
-  // Mäklare e-post
-  const emailMatch = html.match(/"broker_email"\s*:\s*"([^"]+)"/i) ||
-    html.match(/href="mailto:([^"]+)"/i);
-  if (emailMatch) result.agentEmail = emailMatch[1].trim();
-
-  // Mäklarfirmans URL
-  const agencyUrlMatch = html.match(/"broker_agency_url"\s*:\s*"([^"]+)"/i) ||
-    html.match(/class="[^"]*broker[^"]*logo[^"]*"[^>]*href="([^"]+)"/i);
-  if (agencyUrlMatch) result.agencyUrl = agencyUrlMatch[1].trim();
-
-  // Mäklarfirmans logotyp
-  const agencyLogoMatch = html.match(/"broker_agency_logo_url"\s*:\s*"([^"]+)"/i) ||
-    html.match(/class="[^"]*broker[^"]*logo[^"]*"[^>]*src="([^"]+)"/i);
-  if (agencyLogoMatch) result.agencyLogoUrl = agencyLogoMatch[1].trim();
-
-  // Byggår
-  const builtMatch = html.match(/"construction_year"\s*:\s*(\d{4})/i) ||
-    html.match(/Byggår[^<]*<[^>]+>(\d{4})/i);
-  if (builtMatch) result.builtYear = parseInt(builtMatch[1]);
-
-  // Driftskostnad
-  const operatingMatch = html.match(/"operating_cost"\s*:\s*(\d+)/i) ||
-    html.match(/Driftskostnad[^<]*<[^>]+>([\d\s]+)kr/i);
-  if (operatingMatch) result.operatingCost = parseInt(operatingMatch[1].replace(/\s/g, ''));
-
-  // Månadsavgift (om ej redan känd)
-  const feeMatch = html.match(/"fee"\s*:\s*(\d+)/i) ||
-    html.match(/Avgift[^<]*<[^>]+>([\d\s]+)kr/i);
-  if (feeMatch) result.monthlyFee = parseInt(feeMatch[1].replace(/\s/g, ''));
-
-  // Energiklass
-  const energyMatch = html.match(/"energy_class"\s*:\s*"([A-G])"/i) ||
-    html.match(/Energiklass[^<]*<[^>]+>([A-G])</i);
-  if (energyMatch) result.energyClass = energyMatch[1];
-
-  // Fastighetsbeteckning
-  const propDesigMatch = html.match(/"property_designation"\s*:\s*"([^"]+)"/i) ||
-    html.match(/Fastighetsbeteckning[^<]*<[^>]+>([^<]+)</i);
-  if (propDesigMatch) result.propertyDesignation = propDesigMatch[1].trim();
-
-  // Våningsplan
-  const floorMatch = html.match(/"floor"\s*:\s*(\d+)/i) ||
-    html.match(/Våning[^<]*<[^>]+>(\d+)/i);
-  if (floorMatch) result.floor = parseInt(floorMatch[1]);
-
-  // Antal våningar i byggnaden
-  const floorsMatch = html.match(/"number_of_floors"\s*:\s*(\d+)/i);
-  if (floorsMatch) result.numberOfFloors = parseInt(floorsMatch[1]);
-
-  // Direktlänk till mäklarens annons — leta efter extern URL i JSON-data
-  const brokerUrlMatch = html.match(/"broker_listing_url"\s*:\s*"([^"]+)"/i) ||
-    html.match(/"external_url"\s*:\s*"([^"]+)"/i);
-  if (brokerUrlMatch) result.brokerListingUrl = brokerUrlMatch[1].trim();
-
-  return result;
-}
-
-// ── Hämta Hemnet-sida ────────────────────────────────────────────────
-async function fetchHemnetPage(url) {
-  // Rensa UTM-parametrar och normalisera URL
-  const cleanUrl = url.replace(/\?.*$/, '').replace(/[^/]+-(\d+)$/, (_, id) => {
-    return url.includes('hemnet') ? `bostad/-${id}` : url;
-  });
-
-  const headers = {
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'sv-SE,sv;q=0.9,en;q=0.8',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Cache-Control': 'no-cache',
-    'Pragma': 'no-cache',
-  };
-
-  const res = await fetch(url, { headers });
-  if (!res.ok) throw new Error(`HTTP ${res.status} vid hämtning av ${url}`);
+async function fetchListingPage(url) {
+  const res = await fetch(url, { headers: FETCH_HEADERS });
+  if (!res.ok) throw new Error(`HTTP ${res.status} för ${url}`);
   return await res.text();
 }
 
-// ── Cloud Function: Berika annons ────────────────────────────────────
+function extractNextData(html) {
+  const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+  if (!match) return null;
+  try { return JSON.parse(match[1]); } catch { return null; }
+}
+
+function parseHemnetNextData(nextData) {
+  const result = {};
+  try {
+    const props = nextData?.props?.pageProps || {};
+    const listing = props.listing || props.property || props.home || {};
+    const broker = listing.broker || listing.agent || {};
+    const agency = listing.brokerAgency || listing.agency || broker.agency || {};
+
+    if (listing.description)      result.description        = listing.description;
+    if (listing.constructionYear) result.builtYear          = listing.constructionYear;
+    if (listing.floor)            result.floor              = listing.floor;
+    if (listing.numberOfFloors)   result.numberOfFloors     = listing.numberOfFloors;
+    if (listing.energyClass)      result.energyClass        = listing.energyClass;
+    if (listing.propertyDesignation || listing.cadastralDesignation)
+      result.propertyDesignation = listing.propertyDesignation || listing.cadastralDesignation;
+    if (listing.fee)              result.monthlyFee         = listing.fee;
+    if (listing.operatingCost)    result.operatingCost      = listing.operatingCost;
+
+    const images = listing.images || listing.uploads || [];
+    if (images.length > 0) {
+      result.imageUrls = images
+        .map(i => i.url || i.src || i.original || null)
+        .filter(Boolean).slice(0, 20);
+    }
+
+    if (broker.name)        result.agentName     = broker.name;
+    if (broker.phoneNumber) result.agentPhone    = broker.phoneNumber;
+    if (broker.email)       result.agentEmail    = broker.email;
+    if (agency.name)        result.agencyName    = agency.name;
+    if (agency.url)         result.agencyUrl     = agency.url;
+    if (agency.logoUrl || agency.logo)
+      result.agencyLogoUrl = agency.logoUrl || agency.logo;
+    if (listing.externalUrl || listing.brokerListingUrl)
+      result.brokerListingUrl = listing.externalUrl || listing.brokerListingUrl;
+
+    const viewings = listing.viewings || listing.openHouses || [];
+    if (viewings.length > 0) {
+      result.viewings = viewings.map(v => ({
+        date: v.date || v.startTime || null,
+        startTime: v.startTime || v.start || null,
+        endTime: v.endTime || v.end || null,
+      }));
+    }
+  } catch (err) {
+    console.warn('Fel vid parsning av __NEXT_DATA__:', err.message);
+  }
+  return result;
+}
+
+async function enrichWithClaude(html, url, anthropicKey) {
+  const source = url.includes('booli') ? 'Booli' : url.includes('boneo') ? 'Boneo' : 'Hemnet';
+  const trimmed = html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ').trim().substring(0, 6000);
+
+  const prompt = `Extrahera annonsdata från denna ${source}-sida och returnera ENBART ett JSON-objekt:
+{
+  "agentName": null,
+  "agentPhone": null,
+  "agentEmail": null,
+  "agencyName": null,
+  "agencyUrl": null,
+  "brokerListingUrl": null,
+  "description": null,
+  "builtYear": null,
+  "floor": null,
+  "energyClass": null,
+  "propertyDesignation": null,
+  "monthlyFee": null,
+  "operatingCost": null,
+  "imageUrls": [],
+  "viewings": []
+}
+Fyll i de fält du hittar. Sidinnehåll:\n${trimmed}`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': anthropicKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1000,
+      system: 'Du är en dataextraktor. Returnera ALLTID och ENBART giltig JSON utan kommentarer.',
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!res.ok) throw new Error('Claude API-fel: ' + res.status);
+  const data = await res.json();
+  const text = (data.content.find(b => b.type === 'text') || {}).text || '{}';
+  const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  return JSON.parse(clean);
+}
+
+function isEnrichmentSufficient(enriched) {
+  const keyFields = ['agentName', 'agencyName', 'description', 'imageUrls'];
+  const found = keyFields.filter(k => enriched[k] &&
+    (Array.isArray(enriched[k]) ? enriched[k].length > 0 : String(enriched[k]).length > 0)
+  );
+  return found.length >= 2;
+}
+
 exports.enrichListing = onDocumentCreated(
   {
     document: 'listings/{listingId}',
@@ -308,48 +352,72 @@ exports.enrichListing = onDocumentCreated(
     memory: '512MiB',
   },
   async (event) => {
+    // Gen2: event.data kan vara undefined vid vissa edge cases
+    if (!event.data) {
+      console.error('enrichListing: event.data är undefined, hoppar över.');
+      return;
+    }
+
     const snap = event.data;
     const listing = snap.data();
     const listingId = event.params.listingId;
 
-    // Hoppa över om det inte finns en URL att hämta
     if (!listing.url) {
-      console.log(`Annons ${listingId}: ingen URL, hoppar över berikande.`);
+      console.log(`${listingId}: ingen URL, hoppar över.`);
       return;
     }
-
-    // Hoppa över om redan berikad
     if (listing.enriched) {
-      console.log(`Annons ${listingId}: redan berikad.`);
+      console.log(`${listingId}: redan berikad.`);
       return;
     }
 
-    console.log(`Berikare ${listingId}: hämtar ${listing.url}`);
+    console.log(`${listingId}: berikare startar för ${listing.url}`);
 
     try {
-      // Kort fördröjning för att undvika bot-detektering
       await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
+      const html = await fetchListingPage(listing.url);
+      let enriched = {};
+      let method = 'none';
 
-      const html = await fetchHemnetPage(listing.url);
-      const enriched = parseHemnetPage(html);
+      // Strategi A: __NEXT_DATA__ JSON (Hemnet är Next.js)
+      if (listing.source === 'hemnet') {
+        const nextData = extractNextData(html);
+        if (nextData) {
+          enriched = parseHemnetNextData(nextData);
+          method = 'next_data';
+          console.log(`${listingId}: __NEXT_DATA__ hittad, ${Object.keys(enriched).length} fält.`);
+        }
+      }
 
-      // Uppdatera Firestore med berikad data
+      // Strategi B: Claude-fallback (Booli, Boneo, eller om A gav för lite)
+      if (!isEnrichmentSufficient(enriched)) {
+        console.log(`${listingId}: otillräcklig data (${method}), kör Claude-fallback.`);
+        const claudeData = await enrichWithClaude(html, listing.url, ANTHROPIC_KEY.value());
+        enriched = { ...claudeData, ...enriched };
+        method = method === 'next_data' ? 'next_data+claude' : 'claude';
+      }
+
+      const fieldsFound = Object.keys(enriched).filter(k =>
+        enriched[k] !== null && enriched[k] !== undefined &&
+        (Array.isArray(enriched[k]) ? enriched[k].length > 0 : true)
+      ).length;
+
       await snap.ref.update({
         ...enriched,
         enriched: true,
+        enrichMethod: method,
         enrichedAt: Date.now(),
       });
 
-      const fieldsFound = Object.keys(enriched).filter(k => enriched[k] !== null && enriched[k] !== undefined).length;
-      console.log(`Annons ${listingId}: berikad med ${fieldsFound} nya fält.`);
+      console.log(`${listingId}: berikad via ${method} med ${fieldsFound} fält.`);
 
     } catch (err) {
-      console.error(`Annons ${listingId}: fel vid berikande: ${err.message}`);
-      // Markera som försökt men ej lyckad — försök inte om igen automatiskt
+      console.error(`${listingId}: fel vid berikande: ${err.message}`);
       await snap.ref.update({
         enriched: false,
         enrichError: err.message,
         enrichedAt: Date.now(),
       }).catch(() => {});
     }
-  });
+  }
+);
