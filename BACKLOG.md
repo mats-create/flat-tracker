@@ -1,6 +1,6 @@
 # Flat Tracker — Backlog
 
-> Senast uppdaterad: 2026-06-02 (session 5)
+> Senast uppdaterad: 2026-06-03 (session 6)
 
 ---
 
@@ -95,6 +95,20 @@
 - Login-skärm och spinner centrerade i viewport
 
 ### Sprint 7b — Desktop UI-polish (session 5)
+- Sidebar expand/collapse med animerad breddövergång
+- Io-panel renderas som riktig flex-sibling (inte position:fixed) på desktop
+- Io-panel på mobil: bottom sheet oförändrat
+- FAB-knapp synlig på desktop, förskjuts 360px från höger när Io-panelen är öppen
+- Io borttagen från sidebaren — öppnas enbart via FAB
+- Scrollbar synlig i flödeslistan på desktop
+- Markdown-rendering i Io-svar och per-annons-analys
+
+### Sprint 8 (delvis) — enrichListingHttp (session 6)
+- enrichListing som HTTP Cloud Function (gen1) istället för Firestore-trigger
+- Appen anropar funktionen när en annons öppnas och saknar berikad data
+- Strategi C: __NEXT_DATA__ för Hemnet + Claude-fallback för Booli/Boneo
+- Berikad data cachas i Firestore (görs bara en gång per annons)
+- Gmail-pipeline: gmailPush hanterar Hemnet, Booli och Boneo
 - Sidebar expand/collapse med animerad breddövergång
 - Io-panel renderas som riktig flex-sibling (inte position:fixed) på desktop
 - Io-panel på mobil: bottom sheet oförändrat
