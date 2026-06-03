@@ -1,6 +1,6 @@
 // index.js — Cloud Functions för Flat Tracker
-// Version: 2026-06-03 17:30 CET
-// Ändringar: event-loggning, listingId från event.document som fallback, firebase-functions v6
+// Version: 2026-06-03 17:45 CET
+// Ändringar: enrichListingHttp tillagd (HTTP callable från appen), enrichListing (Firestore trigger) behålls för framtida gen2-migrering
 
 const functions = require('firebase-functions');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -329,23 +329,7 @@ exports.enrichListing = onDocumentCreated(
     memory: '512MiB',
   },
   async (event) => {
-    // Logga event-strukturen för felsökning
-    console.log('enrichListing event:', JSON.stringify({
-      type: event.type,
-      document: event.document,
-      params: event.params,
-      dataExists: !!event.data,
-    }));
-
-    // Extrahera listingId — event.params kan vara undefined vid gcloud gen2 deploy
-    const listingId = (event.params && event.params.listingId) ||
-      (event.document && event.document.split('/').pop()) ||
-      null;
-
-    if (!listingId) {
-      console.error('enrichListing: kunde inte extrahera listingId, hoppar över.');
-      return;
-    }
+    const listingId = event.params.listingId;
 
     // Gen2 via gcloud: event.data kan vara undefined — läs direkt från Firestore
     let snap, listing;
@@ -422,3 +406,104 @@ exports.enrichListing = onDocumentCreated(
     }
   }
 );
+
+// ════════════════════════════════════════════════════════════════════
+// enrichListingHttp — HTTP-funktion som appen anropar direkt
+// Hämtar fullständig annonsdata från Hemnet/Booli/Boneo
+// Anropas av appen när en annons öppnas och saknar berikad data
+// Sparar resultatet i Firestore och returnerar datan till appen
+// ════════════════════════════════════════════════════════════════════
+exports.enrichListingHttp = functions
+  .runWith({ timeoutSeconds: 120, memory: '512MB', secrets: ['ANTHROPIC_KEY'] })
+  .https.onRequest(async (req, res) => {
+    // CORS — tillåt anrop från GitHub Pages och lokal dev
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Metod ej tillåten' });
+      return;
+    }
+
+    const { listingId } = req.body || {};
+    if (!listingId) {
+      res.status(400).json({ error: 'listingId saknas i request body' });
+      return;
+    }
+
+    // Hämta annons från Firestore
+    const ref = db.collection('listings').doc(listingId);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      res.status(404).json({ error: 'Annons hittades inte' });
+      return;
+    }
+
+    const listing = snap.data();
+
+    // Returnera cachad data om redan berikad
+    if (listing.enriched === true) {
+      console.log(`${listingId}: redan berikad, returnerar cachad data.`);
+      res.status(200).json({ listingId, enriched: true, cached: true });
+      return;
+    }
+
+    if (!listing.url) {
+      res.status(400).json({ error: 'Annons saknar URL' });
+      return;
+    }
+
+    console.log(`${listingId}: berikare startar för ${listing.url}`);
+
+    try {
+      await new Promise(r => setTimeout(r, 800 + Math.random() * 500));
+
+      const html = await fetchListingPage(listing.url);
+      let enriched = {};
+      let method = 'none';
+
+      // Strategi A: __NEXT_DATA__ JSON (Hemnet är Next.js)
+      if (listing.source === 'hemnet') {
+        const nextData = extractNextData(html);
+        if (nextData) {
+          enriched = parseHemnetNextData(nextData);
+          method = 'next_data';
+          console.log(`${listingId}: __NEXT_DATA__ hittad, ${Object.keys(enriched).length} fält.`);
+        }
+      }
+
+      // Strategi B: Claude-fallback (Booli, Boneo, eller om A gav för lite)
+      if (!isEnrichmentSufficient(enriched)) {
+        console.log(`${listingId}: otillräcklig data (${method}), kör Claude-fallback.`);
+        const claudeData = await enrichWithClaude(html, listing.url, ANTHROPIC_KEY.value());
+        enriched = { ...claudeData, ...enriched };
+        method = method === 'next_data' ? 'next_data+claude' : 'claude';
+      }
+
+      const fieldsFound = Object.keys(enriched).filter(k =>
+        enriched[k] !== null && enriched[k] !== undefined &&
+        (Array.isArray(enriched[k]) ? enriched[k].length > 0 : true)
+      ).length;
+
+      // Spara i Firestore
+      await ref.update({
+        ...enriched,
+        enriched: true,
+        enrichMethod: method,
+        enrichedAt: Date.now(),
+      });
+
+      console.log(`${listingId}: berikad via ${method} med ${fieldsFound} fält.`);
+      res.status(200).json({ listingId, enriched: true, method, fieldsFound });
+
+    } catch (err) {
+      console.error(`${listingId}: fel vid berikande: ${err.message}`);
+      await ref.update({
+        enriched: false,
+        enrichError: err.message,
+        enrichedAt: Date.now(),
+      }).catch(() => {});
+      res.status(500).json({ error: err.message });
+    }
+  });
