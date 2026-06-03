@@ -68,6 +68,7 @@ jobs:
       - name: Deploya enrichListing
         run: |
           gcloud functions deploy enrichListing \
+            --no-gen2 \
             --runtime nodejs20 \
             --trigger-event providers/cloud.firestore/eventTypes/document.create \
             --trigger-resource "projects/${{ secrets.FIREBASE_PROJECT_ID }}/databases/(default)/documents/listings/{listingId}" \
