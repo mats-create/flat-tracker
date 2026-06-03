@@ -76,6 +76,6 @@ jobs:
             --timeout 120s \
             --set-secrets ANTHROPIC_KEY=ANTHROPIC_KEY:latest \
             --project ${{ secrets.FIREBASE_PROJECT_ID }} \
-            --region us-central1 \
+            --region europe-west1 \
             --source functions \
             --quiet
