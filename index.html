@@ -49,8 +49,8 @@
 
 <style>
 /* style.css — Flat Tracker
- * Version: 2026-06-04 09:30 CET
- * Ändringar: visningstider, expanderbar detaljsektion, btn-details
+ * Version: 2026-06-04 10:30 CET
+ * Ändringar: datastatus, visningstider, btn-details, detaljsektion
  */
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -1236,6 +1236,86 @@ html, body {
   color: white;
 }
 
+/* ── Datastatus per annons ───────────────────────────────────────── */
+.listing-card__data-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-hint);
+  padding: 4px 0 2px;
+}
+
+.listing-card__data-status--full    { color: #2E7D32; font-weight: 500; }
+.listing-card__data-status--basic   { color: var(--text-hint); }
+.listing-card__data-status--failed  { color: var(--text-hint); font-style: italic; }
+
+/* ── Visningstider ───────────────────────────────────────────────── */
+.listing-card__viewings {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0 2px;
+  font-size: 13px;
+}
+
+.listing-card__viewings-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.listing-card__viewing-item {
+  background: #E8F4FD;
+  color: #1565C0;
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ── Mer info-knapp ──────────────────────────────────────────────── */
+.btn-details {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.btn-details:hover { background: var(--surface-2); }
+
+/* ── Expanderad detaljsektion ────────────────────────────────────── */
+.listing-card__details-expanded {
+  border-top: 1px solid var(--divider);
+  padding: 12px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.listing-card__detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.listing-card__detail-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.listing-card__detail-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+
 /* Io-analys */
 /* ── Berikningsstatus ─────────────────────────────────────────────── */
 .listing-card__enriching {
@@ -2233,8 +2313,8 @@ function HouseholdSetupScreen({ user, onComplete }) {
 
 /* ---- src/screens.js ---- */
 // screens.js — huvudskärmar för Flat Tracker
-// Version: 2026-06-04 09:30 CET
-// Ändringar: städad kortlayout, visningstider alltid synliga, expanderbar detaljsektion, månadsavgift-fix
+// Version: 2026-06-04 10:30 CET
+// Ändringar: knappordning Mer info→Bevaka→Io-analys, Io-analys dold utom för bevakade
 
 // ── Hjälpfunktion: Io-analys av en annons ───────────────────────────
 async function fetchIoAnalysis(listing, anthropicKey) {
@@ -2414,25 +2494,27 @@ function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatc
 
       {/* ── Åtgärder ── */}
       <div className="listing-card__actions">
+        {listing.enriched === true && (
+          <button
+            className="btn-details"
+            onClick={function() { setDetailsOpen(function(v) { return !v; }); }}>
+            Mer info {detailsOpen ? '▲' : '▼'}
+          </button>
+        )}
         <button
           className={'btn-watch' + (watched ? ' btn-watch--active' : '')}
           onClick={handleToggleWatch}
           title={watched ? 'Sluta bevaka' : 'Bevaka'}>
           {watched ? '⭐ Bevakas' : '☆ Bevaka'}
         </button>
-        <button
-          className="btn-analyze"
-          onClick={function() {
-            if (!analysis && !analyzing) runAnalysis();
-            else setExpanded(function(v) { return !v; });
-          }}>
-          Io-analys {expanded ? '▲' : '▼'}
-        </button>
-        {listing.enriched === true && (
+        {watched && (
           <button
-            className="btn-details"
-            onClick={function() { setDetailsOpen(function(v) { return !v; }); }}>
-            Mer info {detailsOpen ? '▲' : '▼'}
+            className="btn-analyze"
+            onClick={function() {
+              if (!analysis && !analyzing) runAnalysis();
+              else setExpanded(function(v) { return !v; });
+            }}>
+            Io-analys {expanded ? '▲' : '▼'}
           </button>
         )}
       </div>
