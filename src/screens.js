@@ -1,6 +1,6 @@
 // screens.js — huvudskärmar för Flat Tracker
-// Version: 2026-06-04 09:30 CET
-// Ändringar: städad kortlayout, visningstider alltid synliga, expanderbar detaljsektion, månadsavgift-fix
+// Version: 2026-06-04 10:30 CET
+// Ändringar: knappordning Mer info→Bevaka→Io-analys, Io-analys dold utom för bevakade
 
 // ── Hjälpfunktion: Io-analys av en annons ───────────────────────────
 async function fetchIoAnalysis(listing, anthropicKey) {
@@ -180,25 +180,27 @@ function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatc
 
       {/* ── Åtgärder ── */}
       <div className="listing-card__actions">
+        {listing.enriched === true && (
+          <button
+            className="btn-details"
+            onClick={function() { setDetailsOpen(function(v) { return !v; }); }}>
+            Mer info {detailsOpen ? '▲' : '▼'}
+          </button>
+        )}
         <button
           className={'btn-watch' + (watched ? ' btn-watch--active' : '')}
           onClick={handleToggleWatch}
           title={watched ? 'Sluta bevaka' : 'Bevaka'}>
           {watched ? '⭐ Bevakas' : '☆ Bevaka'}
         </button>
-        <button
-          className="btn-analyze"
-          onClick={function() {
-            if (!analysis && !analyzing) runAnalysis();
-            else setExpanded(function(v) { return !v; });
-          }}>
-          Io-analys {expanded ? '▲' : '▼'}
-        </button>
-        {listing.enriched === true && (
+        {watched && (
           <button
-            className="btn-details"
-            onClick={function() { setDetailsOpen(function(v) { return !v; }); }}>
-            Mer info {detailsOpen ? '▲' : '▼'}
+            className="btn-analyze"
+            onClick={function() {
+              if (!analysis && !analyzing) runAnalysis();
+              else setExpanded(function(v) { return !v; });
+            }}>
+            Io-analys {expanded ? '▲' : '▼'}
           </button>
         )}
       </div>
