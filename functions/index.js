@@ -1,7 +1,6 @@
 // index.js — Cloud Functions för Flat Tracker
-// Version: 2026-06-03 14:50 CET
-// Ändringar: enrichListing gen2, strategi C (__NEXT_DATA__ + Claude-fallback),
-//            Booli/Boneo-stöd, null-check på event.data
+// Version: 2026-06-03 15:55 CET
+// Ändringar: enrichListing läser från Firestore direkt när event.data är undefined (gcloud deploy-mismatch)
 
 const functions = require('firebase-functions');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -50,40 +49,7 @@ function extractPlainText(payload) {
 }
 
 async function extractListingsWithClaude(mailText, anthropicKey) {
-  const prompt = `Analysera detta bevakningsmail från Hemnet, Booli eller Boneo och extrahera alla lägenhetsannonser.
-
-Kända URL-mönster:
-- Hemnet: hemnet.se/bostad/... → source: "hemnet"
-- Booli: booli.se/bostad/... → source: "booli"
-- Boneo: boneo.se/... → source: "boneo"
-
-Returnera ENBART ett JSON-objekt, ingen annan text:
-{
-  "listings": [
-    {
-      "source": "hemnet", "booli" eller "boneo",
-      "externalId": "ID från URL:en",
-      "url": "direktlänk till annonsen",
-      "street": "gatuadress",
-      "area": "stadsdel",
-      "city": "stad",
-      "price": pristal i kronor eller null,
-      "sqm": kvadratmeter eller null,
-      "rooms": antal rum eller null,
-      "monthlyFee": månadsavgift i kronor eller null,
-      "hasBalcony": true/false/null,
-      "hasElevator": true/false/null,
-      "isNewConstruction": true/false/null,
-      "imageUrl": "bild-URL eller null",
-      "publishedAt": "ISO-datum eller null",
-      "agentName": "mäklarens namn eller null",
-      "agencyName": "mäklarfirmans namn eller null"
-    }
-  ]
-}
-
-Mailinnehåll:
-` + mailText.substring(0, 8000);
+  const prompt = 'Analysera det har bevakningsmaiet fran Hemnet eller Booli och extrahera alla lagenhetsannonser.\n\nReturnera ENBART ett JSON-objekt, ingen annan text:\n{\n  "listings": [\n    {\n      "source": "hemnet" eller "booli",\n      "externalId": "ID fran URL:en",\n      "url": "direktlank till annonsen",\n      "title": "gatuadress",\n      "street": "gatuadress",\n      "area": "stadsdel",\n      "city": "stad",\n      "price": pristal i kronor,\n      "sqm": kvadratmeter,\n      "rooms": antal rum,\n      "monthlyFee": manadsavgift i kronor (0 om okant),\n      "hasBalcony": true/false,\n      "hasElevator": true/false,\n      "isNewConstruction": true/false,\n      "imageUrl": "bild-URL om tillganglig",\n      "publishedAt": "ISO-datum om kant",\n      "agentName": "maklarens namn om tillgangligt, annars null",\n      "agencyName": "maklarfirmans namn om tillgangligt, annars null"\n    }\n  ]\n}\n\nMailinnehall:\n' + mailText.substring(0, 8000);
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -236,7 +202,7 @@ async function fetchListingPage(url) {
 }
 
 function extractNextData(html) {
-  const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+  const match = html.match(/<script id="__NEXT_DATA__" type=\"application\/json\">([\s\S]*?)<\/script>/);
   if (!match) return null;
   try { return JSON.parse(match[1]); } catch { return null; }
 }
@@ -357,15 +323,23 @@ exports.enrichListing = onDocumentCreated(
     memory: '512MiB',
   },
   async (event) => {
-    // Gen2: event.data kan vara undefined vid vissa edge cases
-    if (!event.data) {
-      console.error('enrichListing: event.data är undefined, hoppar över.');
-      return;
-    }
-
-    const snap = event.data;
-    const listing = snap.data();
     const listingId = event.params.listingId;
+
+    // Gen2 via gcloud: event.data kan vara undefined — läs direkt från Firestore
+    let snap, listing;
+    if (event.data) {
+      snap = event.data;
+      listing = snap.data();
+    } else {
+      console.log(`${listingId}: event.data undefined, hämtar från Firestore direkt.`);
+      const ref = db.collection('listings').doc(listingId);
+      snap = await ref.get();
+      if (!snap.exists) {
+        console.log(`${listingId}: dokument finns inte, hoppar över.`);
+        return;
+      }
+      listing = snap.data();
+    }
 
     if (!listing.url) {
       console.log(`${listingId}: ingen URL, hoppar över.`);
