@@ -68,14 +68,16 @@ jobs:
       - name: Deploya enrichListing
         run: |
           gcloud functions deploy enrichListing \
-            --no-gen2 \
+            --gen2 \
             --runtime nodejs20 \
-            --trigger-event providers/cloud.firestore/eventTypes/document.create \
-            --trigger-resource "projects/${{ secrets.FIREBASE_PROJECT_ID }}/databases/(default)/documents/listings/{listingId}" \
+            --region europe-west1 \
+            --trigger-location eur3 \
+            --trigger-event-filters "type=google.cloud.firestore.document.v1.created" \
+            --trigger-event-filters "database=(default)" \
+            --trigger-event-filters-path-pattern "document=listings/{listingId}" \
             --memory 512MB \
             --timeout 120s \
             --set-secrets ANTHROPIC_KEY=ANTHROPIC_KEY:latest \
             --project ${{ secrets.FIREBASE_PROJECT_ID }} \
-            --region europe-west1 \
             --source functions \
             --quiet
