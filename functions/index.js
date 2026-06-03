@@ -1,6 +1,6 @@
 // index.js — Cloud Functions för Flat Tracker
-// Version: 2026-06-03 16:25 CET
-// Ändringar: detaljerad felloggning i Claude API-anrop för felsökning
+// Version: 2026-06-03 16:55 CET
+// Ändringar: event-loggning + listingId extraheras från event.document som fallback
 
 const functions = require('firebase-functions');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -329,7 +329,26 @@ exports.enrichListing = onDocumentCreated(
     memory: '512MiB',
   },
   async (event) => {
-    const listingId = event.params.listingId;
+    // Logga event-strukturen en gång för felsökning (utan event.data som kan vara stor)
+    const eventDebug = {
+      type: event.type,
+      document: event.document,
+      params: event.params,
+      dataExists: !!event.data,
+      keys: Object.keys(event).filter(k => k !== 'data'),
+    };
+    console.log('enrichListing event-struktur:', JSON.stringify(eventDebug));
+
+    // Extrahera listingId — event.params kan vara undefined vid gcloud gen2 deploy
+    // Fallback: extrahera från event.document (alltid tillgänglig i Eventarc)
+    const listingId = (event.params && event.params.listingId) ||
+      (event.document && event.document.split('/').pop()) ||
+      null;
+
+    if (!listingId) {
+      console.error('enrichListing: kunde inte extrahera listingId, hoppar över.');
+      return;
+    }
 
     // Gen2 via gcloud: event.data kan vara undefined — läs direkt från Firestore
     let snap, listing;
