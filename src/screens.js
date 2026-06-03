@@ -1,6 +1,6 @@
 // screens.js — huvudskärmar för Flat Tracker
-// Version: 2026-06-04 07:30 CET
-// Ändringar: tydlig datastatus per annons (Fullständig data / Grunddata / Hämtar…)
+// Version: 2026-06-04 09:30 CET
+// Ändringar: städad kortlayout, visningstider alltid synliga, expanderbar detaljsektion, månadsavgift-fix
 
 // ── Hjälpfunktion: Io-analys av en annons ───────────────────────────
 async function fetchIoAnalysis(listing, anthropicKey) {
@@ -42,28 +42,30 @@ async function fetchIoAnalysis(listing, anthropicKey) {
 
 // ── ListingCard med bevakning och Io-analys ──────────────────────────
 function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatch, enriching }) {
-  const [expanded, setExpanded]     = React.useState(false);
-  const [analysis, setAnalysis]     = React.useState(null);
-  const [analyzing, setAnalyzing]   = React.useState(false);
+  const [expanded, setExpanded]       = React.useState(false);
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
+  const [analysis, setAnalysis]       = React.useState(null);
+  const [analyzing, setAnalyzing]     = React.useState(false);
   const [analysisErr, setAnalysisErr] = React.useState(null);
 
   const {
     street, area, city, rooms, sqm, price,
-    monthlyFee, createdAt, url, source,
-    agentName, agencyName, agentEmail,
-    showings,
+    monthlyFee, operatingCost, createdAt, url, source,
+    agentName, agencyName, agentEmail, agentPhone,
+    brokerListingUrl, description, builtYear, floor,
+    energyClass, propertyDesignation, viewings,
   } = listing;
 
-  const oneDayAgo    = Date.now() - 24 * 60 * 60 * 1000;
-  const isNew        = (createdAt || 0) > oneDayAgo;
-  const fee          = monthlyFee || 0;
-  const pricePerSqm  = price && sqm ? Math.round(price / sqm) : null;
+  const oneDayAgo   = Date.now() - 24 * 60 * 60 * 1000;
+  const isNew       = (createdAt || 0) > oneDayAgo;
+  // Konvertera till tal för att undvika "/mån/mån"-bug
+  const fee         = monthlyFee ? parseInt(monthlyFee) : 0;
+  const opCost      = operatingCost ? parseInt(operatingCost) : 0;
+  const pricePerSqm = price && sqm ? Math.round(price / sqm) : null;
 
   async function handleToggleWatch() {
     onToggleWatch(listing.id, !watched);
-    if (!watched && !analysis) {
-      await runAnalysis();
-    }
+    if (!watched && !analysis) await runAnalysis();
   }
 
   async function runAnalysis() {
@@ -98,7 +100,7 @@ function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatc
         <div className="listing-card__badges">
           {isNew && <span className="badge badge--new">NY</span>}
           {watched && <span className="badge badge--watched">⭐</span>}
-          {source && <span className={'badge badge--source badge--' + source}>{source}</span>}
+          {source && <span className={'badge badge--source badge--' + source}>{source.toUpperCase()}</span>}
         </div>
       </div>
 
@@ -121,7 +123,9 @@ function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatc
         {agencyName && (
           <span className="listing-card__detail">
             <span className="listing-card__detail-label">Mäklare</span>
-            <span>{agencyName}</span>
+            {brokerListingUrl
+              ? <a href={brokerListingUrl} target="_blank" rel="noopener noreferrer" className="listing-card__link">{agencyName}</a>
+              : <span>{agencyName}</span>}
           </span>
         )}
         {agentName && (
@@ -129,6 +133,8 @@ function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatc
             <span className="listing-card__detail-label">Ansvarig</span>
             {agentEmail
               ? <a href={'mailto:' + agentEmail} className="listing-card__link">{agentName}</a>
+              : agentPhone
+              ? <a href={'tel:' + agentPhone} className="listing-card__link">{agentName}</a>
               : <span>{agentName}</span>}
           </span>
         )}
@@ -140,13 +146,19 @@ function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatc
         )}
       </div>
 
-      {/* ── Visningstider ── */}
-      {showings && showings.length > 0 && (
-        <div className="listing-card__showings">
+      {/* ── Visningstider — alltid synliga om de finns ── */}
+      {viewings && viewings.length > 0 && (
+        <div className="listing-card__viewings">
           <span className="listing-card__detail-label">Visning</span>
-          {showings.map(function(s, i) {
-            return <span key={i} className="listing-card__showing">{s.date}{s.time ? ' ' + s.time : ''}</span>;
-          })}
+          <div className="listing-card__viewings-list">
+            {viewings.map(function(v, i) {
+              return (
+                <span key={i} className="listing-card__viewing-item">
+                  {v.dayOfWeek ? v.dayOfWeek + ' ' : ''}{v.date || ''}{v.time ? ' kl. ' + v.time : ''}
+                </span>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -177,13 +189,75 @@ function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatc
         <button
           className="btn-analyze"
           onClick={function() {
-            if (!analysis && !analyzing) { runAnalysis(); }
-            else { setExpanded(function(v) { return !v; }); }
-          }}
-          title="Io-analys">
+            if (!analysis && !analyzing) runAnalysis();
+            else setExpanded(function(v) { return !v; });
+          }}>
           Io-analys {expanded ? '▲' : '▼'}
         </button>
+        {listing.enriched === true && (
+          <button
+            className="btn-details"
+            onClick={function() { setDetailsOpen(function(v) { return !v; }); }}>
+            Mer info {detailsOpen ? '▲' : '▼'}
+          </button>
+        )}
       </div>
+
+      {/* ── Mer info — expanderbar ── */}
+      {detailsOpen && (
+        <div className="listing-card__details-expanded">
+          {description && (
+            <div className="listing-card__detail-block">
+              <div className="listing-card__detail-label">Beskrivning</div>
+              <div className="listing-card__detail-text">{description}</div>
+            </div>
+          )}
+          <div className="listing-card__detail-grid">
+            {builtYear && (
+              <span className="listing-card__detail">
+                <span className="listing-card__detail-label">Byggår</span>
+                <span>{builtYear}</span>
+              </span>
+            )}
+            {floor && (
+              <span className="listing-card__detail">
+                <span className="listing-card__detail-label">Våning</span>
+                <span>{floor}</span>
+              </span>
+            )}
+            {energyClass && (
+              <span className="listing-card__detail">
+                <span className="listing-card__detail-label">Energiklass</span>
+                <span>{energyClass}</span>
+              </span>
+            )}
+            {opCost > 0 && (
+              <span className="listing-card__detail">
+                <span className="listing-card__detail-label">Driftskostnad</span>
+                <span>{formatRent(opCost)}/år</span>
+              </span>
+            )}
+            {propertyDesignation && (
+              <span className="listing-card__detail">
+                <span className="listing-card__detail-label">Fastighet</span>
+                <span>{propertyDesignation}</span>
+              </span>
+            )}
+            {agentPhone && (
+              <span className="listing-card__detail">
+                <span className="listing-card__detail-label">Telefon</span>
+                <a href={'tel:' + agentPhone} className="listing-card__link">{agentPhone}</a>
+              </span>
+            )}
+            {agentEmail && (
+              <span className="listing-card__detail">
+                <span className="listing-card__detail-label">E-post</span>
+                <a href={'mailto:' + agentEmail} className="listing-card__link">{agentEmail}</a>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Io-analys expanderbar ── */}
       {expanded && (

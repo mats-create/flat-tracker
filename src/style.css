@@ -1,6 +1,6 @@
 /* style.css — Flat Tracker
- * Version: 2026-06-04 07:30 CET
- * Ändringar: listing-card__data-status med tre tillstånd
+ * Version: 2026-06-04 09:30 CET
+ * Ändringar: visningstider, expanderbar detaljsektion, btn-details
  */
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -1187,30 +1187,17 @@ html, body {
 }
 
 /* Io-analys */
-/* ── Datastatus per annons ───────────────────────────────────────── */
-.listing-card__data-status {
+/* ── Berikningsstatus ─────────────────────────────────────────────── */
+.listing-card__enriching {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 11px;
   color: var(--text-hint);
-  padding: 4px 0 2px;
+  padding: 4px 0;
 }
 
-.listing-card__data-status--full {
-  color: #2E7D32;
-  font-weight: 500;
-}
-
-.listing-card__data-status--basic {
-  color: var(--text-hint);
-}
-
-.listing-card__data-status--failed {
-  color: var(--text-hint);
-  font-style: italic;
-}
-
+.listing-card__analysis {
   background: #F0F4FF;
   border-radius: var(--radius-sm);
   padding: 12px;
