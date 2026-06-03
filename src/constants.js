@@ -1,4 +1,6 @@
 // constants.js — app-wide constants for Flat Tracker
+// Version: 2026-06-03 19:00 CET
+// Ändringar: ENRICH_FUNCTION_URL tillagd
 
 const APP_NAME     = 'Flat Tracker';
 const APP_VERSION  = '0.2.0';
@@ -49,6 +51,9 @@ Gmail-label och filter:
 
 ## Kommunikationsstil
 Du är koncis, vänlig och praktisk. Svara alltid på svenska. När du diskuterar priser, använd alltid SEK eller kronor. Ge konkreta steg-för-steg-instruktioner när användaren ber om hjälp med inställningar. Om du saknar specifik data, säg det tydligt och erbjud generell vägledning istället.`;
+
+// ── Cloud Function URL:er ───────────────────────────────────────────
+const ENRICH_FUNCTION_URL = 'https://europe-west1-flattracker-mph.cloudfunctions.net/enrichListingHttp';
 
 // ── Firestore-samlingar ──────────────────────────────────────────────
 const COLLECTIONS = {

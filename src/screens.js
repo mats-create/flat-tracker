@@ -1,4 +1,6 @@
 // screens.js — huvudskärmar för Flat Tracker
+// Version: 2026-06-03 19:00 CET
+// Ändringar: bakgrundsberikande via enrichListingHttp vid laddning av flödet
 
 // ── Hjälpfunktion: Io-analys av en annons ───────────────────────────
 async function fetchIoAnalysis(listing, anthropicKey) {
@@ -39,7 +41,7 @@ async function fetchIoAnalysis(listing, anthropicKey) {
 }
 
 // ── ListingCard med bevakning och Io-analys ──────────────────────────
-function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatch }) {
+function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatch, enriching }) {
   const [expanded, setExpanded]     = React.useState(false);
   const [analysis, setAnalysis]     = React.useState(null);
   const [analyzing, setAnalyzing]   = React.useState(false);
@@ -148,6 +150,14 @@ function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatc
         </div>
       )}
 
+      {/* ── Berikningsstatus ── */}
+      {enriching && (
+        <div className="listing-card__enriching">
+          <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
+          <span>Hämtar annonsdetaljer…</span>
+        </div>
+      )}
+
       {/* ── Åtgärder ── */}
       <div className="listing-card__actions">
         <button
@@ -190,6 +200,7 @@ function FeedScreen({ user, householdId, household, profiles }) {
   const [loading,     setLoading]     = React.useState(true);
   const [error,       setError]       = React.useState(null);
   const [watched,     setWatched]     = React.useState({});
+  const [enrichingIds, setEnrichingIds] = React.useState(new Set());
   const [sortBy,      setSortBy]      = React.useState('createdAt');
   const [sortDir,     setSortDir]     = React.useState('desc');
   const [filterSource,  setFilterSource]  = React.useState('');
@@ -238,7 +249,72 @@ function FeedScreen({ user, householdId, household, profiles }) {
     return unsub;
   }, [householdId]);
 
-  // ── Växla bevakning ───────────────────────────────────────────────
+  // ── Bakgrundsberikande ────────────────────────────────────────────
+  // Körs när listings laddats — berikare annonser utan enrich-data i bakgrunden
+  React.useEffect(function() {
+    if (loading || !listings.length) return;
+
+    // Bara annonser från senaste 48h som saknar berikad data
+    var twoDaysAgo = Date.now() - 48 * 60 * 60 * 1000;
+    var toEnrich = listings.filter(function(l) {
+      return l.enriched !== true &&
+             l.enriched !== false &&  // hoppa över misslyckade försök
+             (l.createdAt || 0) > twoDaysAgo &&
+             l.url;
+    });
+
+    if (toEnrich.length === 0) return;
+
+    console.log('Berikare ' + toEnrich.length + ' annonser i bakgrunden...');
+
+    var cancelled = false;
+
+    async function enrichSequentially() {
+      // Kör max 3 parallellt
+      var chunks = [];
+      for (var i = 0; i < toEnrich.length; i += 3) {
+        chunks.push(toEnrich.slice(i, i + 3));
+      }
+
+      for (var chunk of chunks) {
+        if (cancelled) break;
+
+        // Markera som pågående
+        setEnrichingIds(function(prev) {
+          var next = new Set(prev);
+          chunk.forEach(function(l) { next.add(l.id); });
+          return next;
+        });
+
+        await Promise.all(chunk.map(async function(listing) {
+          try {
+            await fetch(ENRICH_FUNCTION_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ listingId: listing.id }),
+            });
+          } catch (err) {
+            console.warn('Berikande misslyckades för ' + listing.id + ': ' + err.message);
+          }
+        }));
+
+        // Avmarkera som pågående
+        setEnrichingIds(function(prev) {
+          var next = new Set(prev);
+          chunk.forEach(function(l) { next.delete(l.id); });
+          return next;
+        });
+
+        // Kort paus mellan chunk-körningar
+        if (!cancelled) await new Promise(function(r) { setTimeout(r, 500); });
+      }
+    }
+
+    enrichSequentially();
+    return function() { cancelled = true; };
+  }, [loading, listings.length]);
+
+
   async function handleToggleWatch(listingId, newVal) {
     var fb = window.__firebase;
     var ref = fb.doc(fb.db, 'households', householdId);
@@ -415,6 +491,7 @@ function FeedScreen({ user, householdId, household, profiles }) {
                 anthropicKey={anthropicKey}
                 watched={!!watched[l.id]}
                 onToggleWatch={handleToggleWatch}
+                enriching={enrichingIds.has(l.id)}
               />
             );
           })}
