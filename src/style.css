@@ -1,6 +1,6 @@
 /* style.css — Flat Tracker
- * Version: 2026-06-04 10:30 CET
- * Ändringar: datastatus, visningstider, btn-details, detaljsektion
+ * Version: 2026-06-04 11:30 CET
+ * Ändringar: badge-full/basic/enriching, detail-grid typografi
  */
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -1186,7 +1186,49 @@ html, body {
   color: white;
 }
 
-/* ── Datastatus per annons ───────────────────────────────────────── */
+/* ── Datastatusbadgar ─────────────────────────────────────────────── */
+.badge--full {
+  background: #2E7D32;
+  color: white;
+  font-weight: 700;
+}
+
+.badge--basic {
+  background: #9E9E9E;
+  color: white;
+  font-weight: 700;
+}
+
+.badge--enriching {
+  background: #E0E0E0;
+  color: var(--text-secondary);
+  animation: spin 1s linear infinite;
+}
+
+/* ── Detail-grid typografi ────────────────────────────────────────── */
+.listing-card__detail-grid .listing-card__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 80px;
+}
+
+.listing-card__detail-grid .listing-card__detail-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-hint);
+}
+
+.listing-card__detail-grid .listing-card__detail > span,
+.listing-card__detail-grid .listing-card__detail > a {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ── Datastatus per annons (behåll för bakåtkompatibilitet) ─────── */
 .listing-card__data-status {
   display: flex;
   align-items: center;

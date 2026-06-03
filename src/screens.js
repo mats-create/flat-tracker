@@ -1,6 +1,6 @@
 // screens.js — huvudskärmar för Flat Tracker
-// Version: 2026-06-04 10:30 CET
-// Ändringar: knappordning Mer info→Bevaka→Io-analys, Io-analys dold utom för bevakade
+// Version: 2026-06-04 11:30 CET
+// Ändringar: datastatus som badge i header, avgift/driftskostnad suffix-fix
 
 // ── Hjälpfunktion: Io-analys av en annons ───────────────────────────
 async function fetchIoAnalysis(listing, anthropicKey) {
@@ -100,6 +100,12 @@ function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatc
         <div className="listing-card__badges">
           {isNew && <span className="badge badge--new">NY</span>}
           {watched && <span className="badge badge--watched">⭐</span>}
+          {enriching
+            ? <span className="badge badge--enriching">⟳</span>
+            : listing.enriched === true
+            ? <span className="badge badge--full" title="Fullständig data">✓</span>
+            : <span className="badge badge--basic" title="Grunddata">○</span>
+          }
           {source && <span className={'badge badge--source badge--' + source}>{source.toUpperCase()}</span>}
         </div>
       </div>
@@ -117,7 +123,7 @@ function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatc
         {fee > 0 && (
           <span className="listing-card__detail">
             <span className="listing-card__detail-label">Avgift</span>
-            <span>{formatRent(fee)}/mån</span>
+            <span>{formatPrice(fee)} kr/mån</span>
           </span>
         )}
         {agencyName && (
@@ -161,22 +167,6 @@ function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatc
           </div>
         </div>
       )}
-
-      {/* ── Datastatus ── */}
-      <div className="listing-card__data-status">
-        {enriching ? (
-          <>
-            <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
-            <span>Hämtar detaljer…</span>
-          </>
-        ) : listing.enriched === true ? (
-          <span className="listing-card__data-status--full">✓ Fullständig data</span>
-        ) : listing.enriched === false ? (
-          <span className="listing-card__data-status--failed">Grunddata (hämtning misslyckades)</span>
-        ) : (
-          <span className="listing-card__data-status--basic">Grunddata</span>
-        )}
-      </div>
 
       {/* ── Åtgärder ── */}
       <div className="listing-card__actions">
@@ -236,7 +226,7 @@ function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatc
             {opCost > 0 && (
               <span className="listing-card__detail">
                 <span className="listing-card__detail-label">Driftskostnad</span>
-                <span>{formatRent(opCost)}/år</span>
+                <span>{formatPrice(opCost)} kr/år</span>
               </span>
             )}
             {propertyDesignation && (
