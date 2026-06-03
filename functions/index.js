@@ -1,6 +1,6 @@
 // index.js — Cloud Functions för Flat Tracker
-// Version: 2026-06-03 15:55 CET
-// Ändringar: enrichListing läser från Firestore direkt när event.data är undefined (gcloud deploy-mismatch)
+// Version: 2026-06-03 16:25 CET
+// Ändringar: detaljerad felloggning i Claude API-anrop för felsökning
 
 const functions = require('firebase-functions');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -66,7 +66,10 @@ async function extractListingsWithClaude(mailText, anthropicKey) {
     }),
   });
 
-  if (!res.ok) throw new Error('Claude API-fel: ' + res.status);
+  if (!res.ok) {
+    const errorBody = await res.text().catch(() => 'kunde inte läsa svar');
+    throw new Error(`Claude API-fel: ${res.status} — ${errorBody}`);
+  }
   const data = await res.json();
   const text = (data.content && data.content.find(b => b.type === 'text') || {}).text || '{}';
   const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -299,7 +302,10 @@ Fyll i de fält du hittar. Sidinnehåll:\n${trimmed}`;
     }),
   });
 
-  if (!res.ok) throw new Error('Claude API-fel: ' + res.status);
+  if (!res.ok) {
+    const errorBody = await res.text().catch(() => 'kunde inte läsa svar');
+    throw new Error(`Claude API-fel: ${res.status} — ${errorBody}`);
+  }
   const data = await res.json();
   const text = (data.content.find(b => b.type === 'text') || {}).text || '{}';
   const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
