@@ -1,3 +1,8 @@
+/* style.css — Flat Tracker
+ * Version: 2026-06-04 07:30 CET
+ * Ändringar: listing-card__data-status med tre tillstånd
+ */
+
 /* ═══════════════════════════════════════════════════════════════════
    FLAT TRACKER — style.css
    Material Design 3, mobilt först, responsiv layout
@@ -386,6 +391,7 @@ html, body {
   }
 
   .bottom-nav { display: none; }
+  .io-fab     { display: none; }
 
   .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .card-grid .card { margin-bottom: 0; }
@@ -868,16 +874,7 @@ html, body {
 .io-fab--active { background: var(--primary-dark); }
 
 @media (min-width: 768px) {
-  .io-fab {
-    display: flex;
-    bottom: 24px;
-    right: 24px;
-    transition: right 220ms ease, transform var(--transition), background var(--transition);
-  }
-  /* När Io-panelen är öppen, förskjut FAB åt vänster om panelen */
-  .io-open .io-fab {
-    right: calc(360px + 16px);
-  }
+  .io-fab { display: none; }
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -1190,7 +1187,30 @@ html, body {
 }
 
 /* Io-analys */
-.listing-card__analysis {
+/* ── Datastatus per annons ───────────────────────────────────────── */
+.listing-card__data-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-hint);
+  padding: 4px 0 2px;
+}
+
+.listing-card__data-status--full {
+  color: #2E7D32;
+  font-weight: 500;
+}
+
+.listing-card__data-status--basic {
+  color: var(--text-hint);
+}
+
+.listing-card__data-status--failed {
+  color: var(--text-hint);
+  font-style: italic;
+}
+
   background: #F0F4FF;
   border-radius: var(--radius-sm);
   padding: 12px;

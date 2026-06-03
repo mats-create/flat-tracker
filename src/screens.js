@@ -1,6 +1,6 @@
 // screens.js — huvudskärmar för Flat Tracker
-// Version: 2026-06-03 19:00 CET
-// Ändringar: bakgrundsberikande via enrichListingHttp vid laddning av flödet
+// Version: 2026-06-04 07:30 CET
+// Ändringar: tydlig datastatus per annons (Fullständig data / Grunddata / Hämtar…)
 
 // ── Hjälpfunktion: Io-analys av en annons ───────────────────────────
 async function fetchIoAnalysis(listing, anthropicKey) {
@@ -150,13 +150,21 @@ function ListingCard({ listing, householdId, anthropicKey, watched, onToggleWatc
         </div>
       )}
 
-      {/* ── Berikningsstatus ── */}
-      {enriching && (
-        <div className="listing-card__enriching">
-          <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
-          <span>Hämtar annonsdetaljer…</span>
-        </div>
-      )}
+      {/* ── Datastatus ── */}
+      <div className="listing-card__data-status">
+        {enriching ? (
+          <>
+            <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
+            <span>Hämtar detaljer…</span>
+          </>
+        ) : listing.enriched === true ? (
+          <span className="listing-card__data-status--full">✓ Fullständig data</span>
+        ) : listing.enriched === false ? (
+          <span className="listing-card__data-status--failed">Grunddata (hämtning misslyckades)</span>
+        ) : (
+          <span className="listing-card__data-status--basic">Grunddata</span>
+        )}
+      </div>
 
       {/* ── Åtgärder ── */}
       <div className="listing-card__actions">
