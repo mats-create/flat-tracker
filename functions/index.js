@@ -1,3 +1,8 @@
+// index.js — Cloud Functions för Flat Tracker
+// Version: 2026-06-03 14:50 CET
+// Ändringar: enrichListing gen2, strategi C (__NEXT_DATA__ + Claude-fallback),
+//            Booli/Boneo-stöd, null-check på event.data
+
 const functions = require('firebase-functions');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
