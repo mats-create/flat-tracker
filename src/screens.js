@@ -1,5 +1,5 @@
 // screens.js — huvudskärmar för Flat Tracker
-// Version: 2026-06-04 13:00 CET
+// Version: 2026-06-04 14:30 CET
 // Ändringar: berikningslogik — useEffect lyssnar på listings, enrichFailedAt separerar misslyckanden från lyckade
 
 // ── Hjälpfunktion: Io-analys av en annons ───────────────────────────
@@ -324,21 +324,23 @@ function FeedScreen({ user, householdId, household, profiles }) {
   }, [householdId]);
 
   // ── Bakgrundsberikande ────────────────────────────────────────────
+  const enrichingSentRef = React.useRef(new Set());
+
   React.useEffect(function() {
     if (loading || !listings.length) return;
 
     var MAX_ATTEMPTS = 3;
-    var MIN_RETRY_INTERVAL = 60 * 60 * 1000; // 1 timme mellan misslyckade försök
+    var MIN_RETRY_INTERVAL = 60 * 60 * 1000;
     var twoDaysAgo = Date.now() - 48 * 60 * 60 * 1000;
     var now = Date.now();
 
     var toEnrich = listings.filter(function(l) {
-      if (l.enriched === true) return false;               // redan klar — enda stoppregeln
-      if ((l.createdAt || 0) < twoDaysAgo) return false;  // för gammal
-      if (!l.url) return false;                            // ingen URL
+      if (l.enriched === true) return false;
+      if (enrichingSentRef.current.has(l.id)) return false;
+      if ((l.createdAt || 0) < twoDaysAgo) return false;
+      if (!l.url) return false;
       var attempts = l.enrichAttempts || 0;
-      if (attempts >= MAX_ATTEMPTS) return false;          // ge upp efter 3 misslyckade
-      // Vänta bara om föregående försök misslyckades (enrichFailedAt finns)
+      if (attempts >= MAX_ATTEMPTS) return false;
       var lastFailed = l.enrichFailedAt || 0;
       if (lastFailed > 0 && (now - lastFailed) < MIN_RETRY_INTERVAL) return false;
       return true;
@@ -346,12 +348,13 @@ function FeedScreen({ user, householdId, household, profiles }) {
 
     if (toEnrich.length === 0) return;
 
+    toEnrich.forEach(function(l) { enrichingSentRef.current.add(l.id); });
+
     console.log('Berikare ' + toEnrich.length + ' annonser i bakgrunden...');
 
     var cancelled = false;
 
     async function enrichSequentially() {
-      // Kör max 3 parallellt
       var chunks = [];
       for (var i = 0; i < toEnrich.length; i += 3) {
         chunks.push(toEnrich.slice(i, i + 3));
@@ -360,7 +363,6 @@ function FeedScreen({ user, householdId, household, profiles }) {
       for (var chunk of chunks) {
         if (cancelled) break;
 
-        // Markera som pågående
         setEnrichingIds(function(prev) {
           var next = new Set(prev);
           chunk.forEach(function(l) { next.add(l.id); });
@@ -379,14 +381,12 @@ function FeedScreen({ user, householdId, household, profiles }) {
           }
         }));
 
-        // Avmarkera som pågående
         setEnrichingIds(function(prev) {
           var next = new Set(prev);
           chunk.forEach(function(l) { next.delete(l.id); });
           return next;
         });
 
-        // Kort paus mellan chunk-körningar
         if (!cancelled) await new Promise(function(r) { setTimeout(r, 500); });
       }
     }

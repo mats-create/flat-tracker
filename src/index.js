@@ -1,6 +1,6 @@
 // index.js — Cloud Functions för Flat Tracker
-// Version: 2026-06-04 13:00 CET
-// Ändringar: cache-check borttagen, enrichFailedAt för retry-logik
+// Version: 2026-06-04 14:45 CET
+// Ändringar: utökad loggning i searchBrokerListing för felsökning
 
 const functions = require('firebase-functions');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -440,39 +440,50 @@ exports.enrichListing = onDocumentCreated(
 async function searchBrokerListing(agencyName, street, city) {
   const query = `${agencyName} ${street} ${city}`;
   const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+  console.log(`searchBrokerListing: söker "${query}"`);
 
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html',
-      'Accept-Language': 'sv-SE,sv;q=0.9',
-    },
-  });
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html',
+        'Accept-Language': 'sv-SE,sv;q=0.9',
+      },
+    });
 
-  if (!res.ok) {
-    console.warn(`DuckDuckGo-sökning fel: ${res.status}`);
+    console.log(`searchBrokerListing: HTTP ${res.status}`);
+
+    if (!res.ok) {
+      console.warn(`DuckDuckGo-sökning fel: ${res.status}`);
+      return null;
+    }
+
+    const html = await res.text();
+    console.log(`searchBrokerListing: fick ${html.length} tecken HTML`);
+
+    const linkRegex = /href="(https?:\/\/[^"]+)"/g;
+    const excluded = ['hemnet.se', 'booli.se', 'boneo.se', 'duckduckgo.com',
+      'hittamaklare.se', 'maklarstatistik.se', 'facebook.com', 'instagram.com'];
+
+    let match;
+    while ((match = linkRegex.exec(html)) !== null) {
+      const foundUrl = match[1];
+      try {
+        const domain = new URL(foundUrl).hostname.replace('www.', '');
+        if (!excluded.some(ex => domain.includes(ex))) {
+          console.log(`searchBrokerListing: hittade ${foundUrl}`);
+          return foundUrl;
+        }
+      } catch {}
+    }
+
+    console.log(`searchBrokerListing: inga relevanta träffar`);
+    return null;
+
+  } catch (err) {
+    console.error(`searchBrokerListing: undantag — ${err.message}`);
     return null;
   }
-
-  const html = await res.text();
-
-  // Extrahera resultatlänkar från DuckDuckGo HTML
-  const linkRegex = /href="(https?:\/\/[^"]+)"/g;
-  const excluded = ['hemnet.se', 'booli.se', 'boneo.se', 'duckduckgo.com',
-    'hittamaklare.se', 'maklarstatistik.se', 'facebook.com', 'instagram.com'];
-
-  let match;
-  while ((match = linkRegex.exec(html)) !== null) {
-    const foundUrl = match[1];
-    try {
-      const domain = new URL(foundUrl).hostname.replace('www.', '');
-      if (!excluded.some(ex => domain.includes(ex))) {
-        return foundUrl;
-      }
-    } catch {}
-  }
-
-  return null;
 }
 
 // ── Extrahera annonsdata från mäklarens sida med Claude ──────────────
