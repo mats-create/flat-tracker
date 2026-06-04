@@ -1,6 +1,6 @@
 // index.js — Cloud Functions för Flat Tracker
-// Version: 2026-06-04 11:45 CET
-// Ändringar: enrichAttempts sparas vid varje försök
+// Version: 2026-06-04 13:00 CET
+// Ändringar: cache-check borttagen, enrichFailedAt för retry-logik
 
 const functions = require('firebase-functions');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -563,12 +563,6 @@ exports.enrichListingHttp = functions
 
     const listing = snap.data();
 
-    if (listing.enriched === true) {
-      console.log(`${listingId}: redan berikad.`);
-      res.status(200).json({ listingId, enriched: true, cached: true });
-      return;
-    }
-
     console.log(`${listingId}: berikare startar — ${listing.street}, ${listing.city}`);
 
     try {
@@ -646,6 +640,7 @@ exports.enrichListingHttp = functions
         enriched: false,
         enrichError: err.message,
         enrichedAt: Date.now(),
+        enrichFailedAt: Date.now(),
         enrichAttempts: (listing.enrichAttempts || 0) + 1,
       }).catch(() => {});
       res.status(500).json({ error: err.message });
