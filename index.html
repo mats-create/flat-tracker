@@ -2355,8 +2355,8 @@ function HouseholdSetupScreen({ user, onComplete }) {
 
 /* ---- src/screens.js ---- */
 // screens.js — huvudskärmar för Flat Tracker
-// Version: 2026-06-04 11:30 CET
-// Ändringar: datastatus som badge i header, avgift/driftskostnad suffix-fix
+// Version: 2026-06-04 11:45 CET
+// Ändringar: försöksbaserad berikningslogik (max 3 försök, 1h between retries)
 
 // ── Hjälpfunktion: Io-analys av en annons ───────────────────────────
 async function fetchIoAnalysis(listing, anthropicKey) {
@@ -2684,13 +2684,20 @@ function FeedScreen({ user, householdId, household, profiles }) {
   React.useEffect(function() {
     if (loading || !listings.length) return;
 
-    // Bara annonser från senaste 48h som saknar berikad data
+    var MAX_ATTEMPTS = 3;
+    var MIN_RETRY_INTERVAL = 60 * 60 * 1000; // 1 timme mellan försök
     var twoDaysAgo = Date.now() - 48 * 60 * 60 * 1000;
+    var now = Date.now();
+
     var toEnrich = listings.filter(function(l) {
-      return l.enriched !== true &&
-             l.enriched !== false &&  // hoppa över misslyckade försök
-             (l.createdAt || 0) > twoDaysAgo &&
-             l.url;
+      if (l.enriched === true) return false;                          // redan klar
+      if ((l.createdAt || 0) < twoDaysAgo) return false;             // för gammal
+      if (!l.url) return false;                                       // ingen URL
+      var attempts = l.enrichAttempts || 0;
+      if (attempts >= MAX_ATTEMPTS) return false;                     // ge upp
+      var lastAttempt = l.enrichedAt || 0;
+      if (attempts > 0 && (now - lastAttempt) < MIN_RETRY_INTERVAL) return false; // vänta
+      return true;
     });
 
     if (toEnrich.length === 0) return;
