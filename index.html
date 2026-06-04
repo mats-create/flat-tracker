@@ -2355,8 +2355,8 @@ function HouseholdSetupScreen({ user, onComplete }) {
 
 /* ---- src/screens.js ---- */
 // screens.js — huvudskärmar för Flat Tracker
-// Version: 2026-06-04 11:45 CET
-// Ändringar: försöksbaserad berikningslogik (max 3 försök, 1h between retries)
+// Version: 2026-06-04 13:00 CET
+// Ändringar: berikningslogik — useEffect lyssnar på listings, enrichFailedAt separerar misslyckanden från lyckade
 
 // ── Hjälpfunktion: Io-analys av en annons ───────────────────────────
 async function fetchIoAnalysis(listing, anthropicKey) {
@@ -2680,23 +2680,23 @@ function FeedScreen({ user, householdId, household, profiles }) {
   }, [householdId]);
 
   // ── Bakgrundsberikande ────────────────────────────────────────────
-  // Körs när listings laddats — berikare annonser utan enrich-data i bakgrunden
   React.useEffect(function() {
     if (loading || !listings.length) return;
 
     var MAX_ATTEMPTS = 3;
-    var MIN_RETRY_INTERVAL = 60 * 60 * 1000; // 1 timme mellan försök
+    var MIN_RETRY_INTERVAL = 60 * 60 * 1000; // 1 timme mellan misslyckade försök
     var twoDaysAgo = Date.now() - 48 * 60 * 60 * 1000;
     var now = Date.now();
 
     var toEnrich = listings.filter(function(l) {
-      if (l.enriched === true) return false;                          // redan klar
-      if ((l.createdAt || 0) < twoDaysAgo) return false;             // för gammal
-      if (!l.url) return false;                                       // ingen URL
+      if (l.enriched === true) return false;               // redan klar — enda stoppregeln
+      if ((l.createdAt || 0) < twoDaysAgo) return false;  // för gammal
+      if (!l.url) return false;                            // ingen URL
       var attempts = l.enrichAttempts || 0;
-      if (attempts >= MAX_ATTEMPTS) return false;                     // ge upp
-      var lastAttempt = l.enrichedAt || 0;
-      if (attempts > 0 && (now - lastAttempt) < MIN_RETRY_INTERVAL) return false; // vänta
+      if (attempts >= MAX_ATTEMPTS) return false;          // ge upp efter 3 misslyckade
+      // Vänta bara om föregående försök misslyckades (enrichFailedAt finns)
+      var lastFailed = l.enrichFailedAt || 0;
+      if (lastFailed > 0 && (now - lastFailed) < MIN_RETRY_INTERVAL) return false;
       return true;
     });
 
@@ -2749,7 +2749,7 @@ function FeedScreen({ user, householdId, household, profiles }) {
 
     enrichSequentially();
     return function() { cancelled = true; };
-  }, [loading, listings.length]);
+  }, [listings]);
 
 
   async function handleToggleWatch(listingId, newVal) {
