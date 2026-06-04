@@ -1,6 +1,6 @@
 // index.js — Cloud Functions för Flat Tracker
-// Version: 2026-06-04 09:45 CET
-// Ändringar: ny berikningsstrategi — web search → mäklarens sajt → Claude-extraktion
+// Version: 2026-06-04 11:45 CET
+// Ändringar: enrichAttempts sparas vid varje försök
 
 const functions = require('firebase-functions');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -634,6 +634,7 @@ exports.enrichListingHttp = functions
         enriched: true,
         enrichMethod: method,
         enrichedAt: Date.now(),
+        enrichAttempts: (listing.enrichAttempts || 0) + 1,
       });
 
       console.log(`${listingId}: berikad via ${method} med ${fieldsFound} fält.`);
@@ -645,6 +646,7 @@ exports.enrichListingHttp = functions
         enriched: false,
         enrichError: err.message,
         enrichedAt: Date.now(),
+        enrichAttempts: (listing.enrichAttempts || 0) + 1,
       }).catch(() => {});
       res.status(500).json({ error: err.message });
     }
