@@ -1,6 +1,6 @@
 // index.js — Cloud Functions för Flat Tracker
-// Version: 2026-06-04 09:30 CET
-// Ändringar: förbättrad Claude-extraktion med JSON-script-data, tydligare prompt för bilder/kontakt/tal-format
+// Version: 2026-06-04 09:45 CET
+// Ändringar: ny berikningsstrategi — web search → mäklarens sajt → Claude-extraktion
 
 const functions = require('firebase-functions');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -432,76 +432,196 @@ exports.enrichListing = onDocumentCreated(
 
 // ════════════════════════════════════════════════════════════════════
 // enrichListingHttp — HTTP-funktion som appen anropar direkt
-// Hämtar fullständig annonsdata från Hemnet/Booli/Boneo
-// Anropas av appen när en annons öppnas och saknar berikad data
-// Sparar resultatet i Firestore och returnerar datan till appen
+// Strategi: web search → mäklarens sajt → Claude-extraktion
+// Minimalt avtryck hos Hemnet/Booli/Boneo
 // ════════════════════════════════════════════════════════════════════
+
+// ── Web search via DuckDuckGo (ingen API-nyckel krävs) ───────────────
+async function searchBrokerListing(agencyName, street, city) {
+  const query = `${agencyName} ${street} ${city}`;
+  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html',
+      'Accept-Language': 'sv-SE,sv;q=0.9',
+    },
+  });
+
+  if (!res.ok) {
+    console.warn(`DuckDuckGo-sökning fel: ${res.status}`);
+    return null;
+  }
+
+  const html = await res.text();
+
+  // Extrahera resultatlänkar från DuckDuckGo HTML
+  const linkRegex = /href="(https?:\/\/[^"]+)"/g;
+  const excluded = ['hemnet.se', 'booli.se', 'boneo.se', 'duckduckgo.com',
+    'hittamaklare.se', 'maklarstatistik.se', 'facebook.com', 'instagram.com'];
+
+  let match;
+  while ((match = linkRegex.exec(html)) !== null) {
+    const foundUrl = match[1];
+    try {
+      const domain = new URL(foundUrl).hostname.replace('www.', '');
+      if (!excluded.some(ex => domain.includes(ex))) {
+        return foundUrl;
+      }
+    } catch {}
+  }
+
+  return null;
+}
+
+// ── Extrahera annonsdata från mäklarens sida med Claude ──────────────
+async function extractFromBrokerPage(html, brokerUrl, anthropicKey) {
+  // Extrahera bildURL:er direkt från HTML
+  const imageUrls = [];
+  const imgRegex = /https?:\/\/[^"'\s]+\.(?:jpg|jpeg|png|webp)(?:\?[^"'\s]*)?/gi;
+  const imgMatches = html.match(imgRegex) || [];
+  const uniqueImages = [...new Set(imgMatches)]
+    .filter(u => !u.includes('logo') && !u.includes('icon') && !u.includes('favicon'))
+    .slice(0, 20);
+  imageUrls.push(...uniqueImages);
+
+  // Rensa HTML för Claude
+  const trimmed = html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ').trim().substring(0, 6000);
+
+  const prompt = `Extrahera annonsdata från denna mäklarsajt och returnera ENBART ett JSON-objekt.
+Viktigt: monthlyFee, operatingCost och builtYear ska vara TAL (heltal), INTE strängar.
+
+{
+  "agentName": null,
+  "agentPhone": null,
+  "agentEmail": null,
+  "description": null,
+  "builtYear": null,
+  "floor": null,
+  "energyClass": null,
+  "propertyDesignation": null,
+  "monthlyFee": null,
+  "operatingCost": null,
+  "viewings": []
+}
+
+Sidinnehåll:
+${trimmed}`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': anthropicKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1000,
+      system: 'Du är en dataextraktor. Returnera ALLTID och ENBART giltig JSON utan kommentarer.',
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.text().catch(() => 'kunde inte läsa svar');
+    throw new Error(`Claude API-fel: ${res.status} — ${errorBody}`);
+  }
+
+  const data = await res.json();
+  const text = (data.content.find(b => b.type === 'text') || {}).text || '{}';
+  const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  const extracted = JSON.parse(clean);
+
+  // Lägg till bilder från HTML-extraktionen
+  if (imageUrls.length > 0 && (!extracted.imageUrls || extracted.imageUrls.length === 0)) {
+    extracted.imageUrls = imageUrls;
+  }
+
+  return extracted;
+}
+
 exports.enrichListingHttp = functions
   .runWith({ timeoutSeconds: 120, memory: '512MB', secrets: ['ANTHROPIC_KEY'] })
   .https.onRequest(async (req, res) => {
-    // CORS — tillåt anrop från GitHub Pages och lokal dev
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
-
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Metod ej tillåten' });
-      return;
-    }
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Metod ej tillåten' }); return; }
 
     const { listingId } = req.body || {};
-    if (!listingId) {
-      res.status(400).json({ error: 'listingId saknas i request body' });
-      return;
-    }
+    if (!listingId) { res.status(400).json({ error: 'listingId saknas' }); return; }
 
-    // Hämta annons från Firestore
     const ref = db.collection('listings').doc(listingId);
     const snap = await ref.get();
-    if (!snap.exists) {
-      res.status(404).json({ error: 'Annons hittades inte' });
-      return;
-    }
+    if (!snap.exists) { res.status(404).json({ error: 'Annons hittades inte' }); return; }
 
     const listing = snap.data();
 
-    // Returnera cachad data om redan berikad
     if (listing.enriched === true) {
-      console.log(`${listingId}: redan berikad, returnerar cachad data.`);
+      console.log(`${listingId}: redan berikad.`);
       res.status(200).json({ listingId, enriched: true, cached: true });
       return;
     }
 
-    if (!listing.url) {
-      res.status(400).json({ error: 'Annons saknar URL' });
-      return;
-    }
-
-    console.log(`${listingId}: berikare startar för ${listing.url}`);
+    console.log(`${listingId}: berikare startar — ${listing.street}, ${listing.city}`);
 
     try {
-      await new Promise(r => setTimeout(r, 800 + Math.random() * 500));
-
-      const html = await fetchListingPage(listing.url);
       let enriched = {};
       let method = 'none';
+      let brokerListingUrl = listing.brokerListingUrl || null;
 
-      // Strategi A: __NEXT_DATA__ JSON (Hemnet är Next.js)
-      if (listing.source === 'hemnet') {
-        const nextData = extractNextData(html);
-        if (nextData) {
-          enriched = parseHemnetNextData(nextData);
-          method = 'next_data';
-          console.log(`${listingId}: __NEXT_DATA__ hittad, ${Object.keys(enriched).length} fält.`);
+      // ── Steg 1: Hitta mäklarens annons via web search ──────────────
+      if (listing.agencyName && listing.street && listing.city) {
+        console.log(`${listingId}: söker efter mäklarannons...`);
+        const foundUrl = await searchBrokerListing(
+          listing.agencyName, listing.street, listing.city
+        );
+        if (foundUrl) {
+          brokerListingUrl = foundUrl;
+          console.log(`${listingId}: hittade mäklarannons: ${brokerListingUrl}`);
+        } else {
+          console.log(`${listingId}: ingen mäklarannons hittad via sökning.`);
         }
       }
 
-      // Strategi B: Claude-fallback (Booli, Boneo, eller om A gav för lite)
-      if (!isEnrichmentSufficient(enriched)) {
-        console.log(`${listingId}: otillräcklig data (${method}), kör Claude-fallback.`);
-        const claudeData = await enrichWithClaude(html, listing.url, ANTHROPIC_KEY.value());
-        enriched = { ...claudeData, ...enriched };
-        method = method === 'next_data' ? 'next_data+claude' : 'claude';
+      // ── Steg 2: Hämta och extrahera från mäklarens sajt ───────────
+      if (brokerListingUrl) {
+        try {
+          const html = await fetchListingPage(brokerListingUrl);
+          enriched = await extractFromBrokerPage(html, brokerListingUrl, ANTHROPIC_KEY.value());
+          enriched.brokerListingUrl = brokerListingUrl;
+          method = 'broker_site';
+          console.log(`${listingId}: extraherat från mäklarens sajt, ${Object.keys(enriched).length} fält.`);
+        } catch (err) {
+          console.warn(`${listingId}: fel vid hämtning av mäklarens sajt: ${err.message}`);
+        }
+      }
+
+      // ── Steg 3: Fallback till Hemnet/Booli om mäklarsajt misslyckades ──
+      if (!isEnrichmentSufficient(enriched) && listing.url) {
+        console.log(`${listingId}: fallback till källsajt (${listing.source}).`);
+        const html = await fetchListingPage(listing.url);
+
+        if (listing.source === 'hemnet') {
+          const nextData = extractNextData(html);
+          if (nextData) {
+            const nextEnriched = parseHemnetNextData(nextData);
+            enriched = { ...enriched, ...nextEnriched };
+            method = 'next_data';
+          }
+        }
+
+        if (!isEnrichmentSufficient(enriched)) {
+          const claudeData = await enrichWithClaude(html, listing.url, ANTHROPIC_KEY.value());
+          enriched = { ...enriched, ...claudeData };
+          method = method === 'next_data' ? 'next_data+claude' : 'claude';
+        }
       }
 
       const fieldsFound = Object.keys(enriched).filter(k =>
@@ -509,7 +629,6 @@ exports.enrichListingHttp = functions
         (Array.isArray(enriched[k]) ? enriched[k].length > 0 : true)
       ).length;
 
-      // Spara i Firestore
       await ref.update({
         ...enriched,
         enriched: true,
