@@ -1,6 +1,6 @@
 // index.js — Cloud Functions för Flat Tracker
-// Version: 2026-06-04 14:45 CET
-// Ändringar: utökad loggning i searchBrokerListing för felsökning
+// Version: 2026-06-04 15:30 CET
+// Ändringar: steg 0 hämtar agencyName från Hemnet om det saknas, web search använder agencyName
 
 const functions = require('firebase-functions');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -580,12 +580,38 @@ exports.enrichListingHttp = functions
       let enriched = {};
       let method = 'none';
       let brokerListingUrl = listing.brokerListingUrl || null;
+      let agencyName = listing.agencyName || null;
+
+      // ── Steg 0: Hämta agencyName från källsajten om det saknas ────
+      if (!agencyName && listing.url && listing.source === 'hemnet') {
+        try {
+          console.log(`${listingId}: agencyName saknas, hämtar från Hemnet...`);
+          const html = await fetchListingPage(listing.url);
+          const nextData = extractNextData(html);
+          if (nextData) {
+            const nd = parseHemnetNextData(nextData);
+            if (nd.agencyName) agencyName = nd.agencyName;
+          }
+          if (!agencyName) {
+            // Fallback: regex direkt i HTML
+            const agencyMatch = html.match(/"broker_agency_name"\s*:\s*"([^"]+)"/i);
+            if (agencyMatch) agencyName = agencyMatch[1];
+          }
+          if (agencyName) {
+            console.log(`${listingId}: hittade agencyName: ${agencyName}`);
+          } else {
+            console.log(`${listingId}: kunde inte hitta agencyName.`);
+          }
+        } catch (err) {
+          console.warn(`${listingId}: fel vid hämtning av agencyName: ${err.message}`);
+        }
+      }
 
       // ── Steg 1: Hitta mäklarens annons via web search ──────────────
-      if (listing.agencyName && listing.street && listing.city) {
+      if (agencyName && listing.street && listing.city) {
         console.log(`${listingId}: söker efter mäklarannons...`);
         const foundUrl = await searchBrokerListing(
-          listing.agencyName, listing.street, listing.city
+          agencyName, listing.street, listing.city
         );
         if (foundUrl) {
           brokerListingUrl = foundUrl;
