@@ -1,5 +1,5 @@
 # deploy-functions.yml — GitHub Actions workflow för Cloud Functions
-# Version: 2026-06-05 10:00 CET
+# Version: 2026-06-05 10:30 CET
 # Ändringar: testSearch tillagd (testar DuckDuckGo från Cloud Run)
 
 name: Deploy Cloud Functions
@@ -80,5 +80,19 @@ jobs:
             --set-secrets ANTHROPIC_KEY=ANTHROPIC_KEY:latest \
             --project ${{ secrets.FIREBASE_PROJECT_ID }} \
             --region europe-west1 \
+            --source functions \
+            --quiet
+
+      - name: Deploya testSearch
+        run: |
+          gcloud functions deploy testSearch \
+            --no-gen2 \
+            --runtime nodejs20 \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory 256MB \
+            --timeout 30s \
+            --project ${{ secrets.FIREBASE_PROJECT_ID }} \
+            --region us-central1 \
             --source functions \
             --quiet
