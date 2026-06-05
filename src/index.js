@@ -1,6 +1,6 @@
 // index.js — Cloud Functions för Flat Tracker
-// Version: 2026-06-04 15:30 CET
-// Ändringar: steg 0 hämtar agencyName från Hemnet om det saknas, web search använder agencyName
+// Version: 2026-06-05 09:15 CET
+// Ändringar: testDuckDuckGo HTTP-funktion tillagd för verifiering
 
 const functions = require('firebase-functions');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -682,4 +682,56 @@ exports.enrichListingHttp = functions
       }).catch(() => {});
       res.status(500).json({ error: err.message });
     }
+  });
+
+// ════════════════════════════════════════════════════════════════════
+// testDuckDuckGo — HTTP-testfunktion för att verifiera DDG-sökning
+// Öppna i webbläsaren: https://europe-west1-flattracker-mph.cloudfunctions.net/testDuckDuckGo?q=Notar+Konduktörsgatan+5+Malmö
+// ════════════════════════════════════════════════════════════════════
+exports.testDuckDuckGo = functions
+  .runWith({ timeoutSeconds: 30, memory: '256MB' })
+  .https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+
+    const query = req.query.q || 'Notar Konduktörsgatan 5 Malmö';
+    const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+
+    const result = { query, url, status: null, htmlLength: 0, firstLinks: [] };
+
+    try {
+      const ddgRes = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html',
+          'Accept-Language': 'sv-SE,sv;q=0.9',
+        },
+      });
+
+      result.status = ddgRes.status;
+      result.statusText = ddgRes.statusText;
+
+      if (ddgRes.ok) {
+        const html = await ddgRes.text();
+        result.htmlLength = html.length;
+
+        // Extrahera de första 5 länkarna
+        const excluded = ['hemnet.se', 'booli.se', 'boneo.se', 'duckduckgo.com',
+          'hittamaklare.se', 'maklarstatistik.se', 'facebook.com', 'instagram.com'];
+        const linkRegex = /href="(https?:\/\/[^"]+)"/g;
+        let match;
+        while ((match = linkRegex.exec(html)) !== null && result.firstLinks.length < 5) {
+          const foundUrl = match[1];
+          try {
+            const domain = new URL(foundUrl).hostname.replace('www.', '');
+            if (!excluded.some(ex => domain.includes(ex))) {
+              result.firstLinks.push(foundUrl);
+            }
+          } catch {}
+        }
+      }
+    } catch (err) {
+      result.error = err.message;
+    }
+
+    res.status(200).json(result);
   });
