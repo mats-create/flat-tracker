@@ -1,6 +1,6 @@
 // index.js — Cloud Functions för Flat Tracker
-// Version: 2026-06-05 09:15 CET
-// Ändringar: testDuckDuckGo HTTP-funktion tillagd för verifiering
+// Version: 2026-06-05 10:00 CET
+// Ändringar: testSearch (döpt om från testDuckDuckGo för att undvika gen2-konflikt)
 
 const functions = require('firebase-functions');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -688,7 +688,7 @@ exports.enrichListingHttp = functions
 // testDuckDuckGo — HTTP-testfunktion för att verifiera DDG-sökning
 // Öppna i webbläsaren: https://europe-west1-flattracker-mph.cloudfunctions.net/testDuckDuckGo?q=Notar+Konduktörsgatan+5+Malmö
 // ════════════════════════════════════════════════════════════════════
-exports.testDuckDuckGo = functions
+exports.testSearch = functions
   .runWith({ timeoutSeconds: 30, memory: '256MB' })
   .https.onRequest(async (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
