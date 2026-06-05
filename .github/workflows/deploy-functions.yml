@@ -1,6 +1,6 @@
 # deploy-functions.yml — GitHub Actions workflow för Cloud Functions
-# Version: 2026-06-03 18:20 CET
-# Ändringar: enrichListing (Firestore-trigger) borttagen — ersatt av enrichListingHttp
+# Version: 2026-06-05 10:00 CET
+# Ändringar: testSearch tillagd (testar DuckDuckGo från Cloud Run)
 
 name: Deploy Cloud Functions
 
@@ -78,20 +78,6 @@ jobs:
             --memory 512MB \
             --timeout 120s \
             --set-secrets ANTHROPIC_KEY=ANTHROPIC_KEY:latest \
-            --project ${{ secrets.FIREBASE_PROJECT_ID }} \
-            --region europe-west1 \
-            --source functions \
-            --quiet
-
-      - name: Deploya testDuckDuckGo
-        run: |
-          gcloud functions deploy testDuckDuckGo \
-            --no-gen2 \
-            --runtime nodejs20 \
-            --trigger-http \
-            --allow-unauthenticated \
-            --memory 256MB \
-            --timeout 30s \
             --project ${{ secrets.FIREBASE_PROJECT_ID }} \
             --region europe-west1 \
             --source functions \
